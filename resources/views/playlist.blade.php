@@ -17,6 +17,9 @@
     .sisa-badge.warning{background:#ffc107;color:#333}
     .sisa-badge.danger{background:#dc3545;color:#fff}
     .sisa-badge .hari-num{font-size:16px;font-weight:800;line-height:1}
+    .status-paid{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
+    .status-unpaid{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
+    /* legacy aliases */
     .status-pending{background:#ffc107;color:#333;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
     .status-approved{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
     .status-rejected{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
@@ -91,11 +94,6 @@
           <a href="#" class="dropdown-item text-center" style="color:#17a2b8;font-size:13px">Lihat Semua Notifikasi</a>
         </div>
       </li>
-      <li class="nav-item">
-        <button class="btn btn-primary btn-sm mr-2" data-toggle="modal" data-target="#modalTambahPlaylist">
-          <i class="fas fa-plus"></i> Tambah Playlist
-        </button>
-      </li>
     </ul>
   </nav>
 
@@ -117,6 +115,11 @@
           <li class="nav-item">
             <a href="{{ route('playlist.index') }}" class="nav-link active">
               <i class="nav-icon fas fa-film"></i><p>Daftar Playlist</p>
+            </a>
+          </li>
+          <li class="nav-item">
+            <a href="{{ route('permintaan.index') }}" class="nav-link">
+              <i class="nav-icon fas fa-clipboard-list"></i><p>Daftar Permintaan</p>
             </a>
           </li>
         </ul>
@@ -145,13 +148,30 @@
 
         @php
           use Carbon\Carbon;
+          use App\Models\Invoice;
+
           $deviceMap = collect($devices ?? [])->keyBy('id');
           $vendorMap = collect($vendors ?? [])->keyBy('id');
 
+          $localInvoices = Invoice::all()->keyBy('playlist_id');
+
+          // CUMA LOLOSIN YANG PAID / 1
+          $playlists = array_values(array_filter($playlists, function($p) use ($localInvoices) {
+            $apiStatus = strtolower((string)($p['status'] ?? ''));
+            $inv = $localInvoices->get($p['id']);
+            $localStatus = $inv ? strtolower($inv->status) : 'unpaid';
+
+            return in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']); 
+          }));
+
           $totalPlaylist = count($playlists);
           $amanCount = $warningCount = $dangerCount = 0;
-          foreach ($playlists as $pl) {
-            $d = (int) Carbon::now()->diffInDays(Carbon::parse($pl['end_contract']), false);
+          
+          foreach ($playlists as &$p) { 
+            $inv = $localInvoices->get($p['id']);
+            $p['contract_value'] = $inv ? $inv->amount : ($p['contract_value'] ?? 0);
+
+            $d = (int) Carbon::now()->diffInDays(Carbon::parse($p['end_contract']), false);
             if ($d >= 30)     $amanCount++;
             elseif ($d >= 11) $warningCount++;
             else              $dangerCount++;
@@ -212,7 +232,7 @@
                       <th style="width:80px">Sisa</th>
                       <th style="width:110px">Status</th>
                       <th>Nilai Kontrak</th>
-                      <th style="width:90px">Aksi</th>
+                      <th style="width:110px">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -225,29 +245,24 @@
                         else                 { $sisaClass = 'danger'; }
                         $sisaLabel  = $diff > 0 ? $diff.' hari' : abs($diff).' hari (lewat)';
                         $val        = $p['contract_value'] ?? 0;
-                        // Coba vendor_id dulu, fallback ke cust_id
+                        
                         $vName = $vendorMap[$p['vendor_id'] ?? '']['nama']
                               ?? $vendorMap[$p['cust_id']   ?? '']['nama']
                               ?? ($p['vendor_id'] ?? '-');
                         $dName = $deviceMap[$p['device_id'] ?? '']['device_name'] ?? '-';
-                        $status = match((string)($p['status'] ?? '')) {
-                            '2','approved' => 'approved',
-                            '3','rejected' => 'rejected',
-                            default        => 'pending',
-                        };
-                        $statusClass = match($status) {
-                            'approved' => 'status-approved',
-                            'rejected' => 'status-rejected',
-                            default    => 'status-pending',
-                        };
-                        $playlistId = $p['id'] ?? $i;
-
                         
+                        // PERBAIKAN: Baca status API ("1") dan Lokal biar warnanya ijo semua
+                        $apiStatus = strtolower((string)($p['status'] ?? ''));
+                        $invStatus = isset($localInvoices[$p['id']]) ? strtolower($localInvoices[$p['id']]->status) : 'unpaid';
+                        
+                        $isPaid = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($invStatus, ['paid', 'approved', '1']);
+                        
+                        $status = $isPaid ? 'paid' : 'unpaid';
+                        $statusClass = $isPaid ? 'status-paid' : 'status-unpaid';
+                        
+                        $playlistId = $p['id'] ?? $i;
                         $resolvedItems = $p['resolved_items'] ?? [];
-                        $kontenJson = htmlspecialchars(
-                            json_encode(array_values($resolvedItems)),
-                            ENT_QUOTES
-                        );
+                        $kontenJson = htmlspecialchars(json_encode(array_values($resolvedItems)), ENT_QUOTES);
                       @endphp
                       <tr>
                         <td>{{ $i + 1 }}</td>
@@ -279,10 +294,9 @@
                             onclick="bukaPreview(this)">
                             <i class="fas fa-eye"></i>
                           </button>
-                          <button class="btn btn-danger btn-action" title="Hapus"
-                            onclick="konfirmasiHapus('{{ $playlistId }}','{{ addslashes($p['playlist_name']) }}')">
-                            <i class="fas fa-trash"></i>
-                          </button>
+                          <a href="{{ route('playlist.invoice', $playlistId) }}" target="_blank" class="btn btn-success btn-action mb-1" title="Lihat Invoice">
+                            <i class="fas fa-file-invoice-dollar"></i>
+                          </a>
                         </td>
                       </tr>
                     @empty
@@ -320,7 +334,6 @@
         </div>
         <div class="modal-body">
 
-          {{-- Info Data --}}
           <div class="card card-secondary card-outline mb-3">
             <div class="card-header py-2">
               <h6 class="card-title mb-0"><i class="fas fa-info-circle mr-1"></i> Informasi Playlist</h6>
@@ -338,14 +351,10 @@
             </div>
           </div>
 
-          {{-- Konten diupload --}}
           <div class="card card-secondary card-outline mb-0">
             <div class="card-header py-2 d-flex align-items-center">
               <h6 class="card-title mb-0"><i class="fas fa-photo-video mr-1"></i> Konten Diupload</h6>
               <span id="kontenCount" class="badge badge-secondary ml-2"></span>
-              <span id="kontenLoadingSpinner" class="ml-2" style="display:none;">
-                <i class="fas fa-spinner fa-spin text-muted"></i>
-              </span>
             </div>
             <div class="card-body" id="kontenContainer">
               <p class="text-muted text-center mb-0">
@@ -384,83 +393,6 @@
     </div>
   </div>
 
-  {{-- MODAL TAMBAH PLAYLIST --}}
-  <div class="modal fade" id="modalTambahPlaylist" tabindex="-1" data-backdrop="static">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content">
-        <div class="modal-header bg-dark">
-          <h4 class="modal-title"><i class="fas fa-plus-circle mr-2"></i>Tambah Playlist</h4>
-          <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" id="cust_id" value="1">
-
-          <div class="card card-secondary card-outline mb-3">
-            <div class="card-header py-2"><h6 class="card-title mb-0"><i class="fas fa-film mr-1"></i> Info Playlist</h6></div>
-            <div class="card-body pb-0">
-              <div class="row">
-                <div class="col-md-6"><div class="form-group"><label>Nama Playlist <span class="text-danger">*</span></label><input type="text" id="playlist_name" class="form-control" placeholder="Masukkan nama playlist"></div></div>
-                <div class="col-md-6"><div class="form-group"><label>Vendor <span class="text-danger">*</span></label>
-                  <select id="vendor_select" name="vendor_id" class="form-control">
-                    <option value="">-- Pilih Vendor --</option>
-                    @foreach($vendors as $v)
-                      <option value="{{ $v['id'] }}">{{ $v['nama'] }}</option>
-                    @endforeach
-                  </select>
-                </div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card card-secondary card-outline mb-3">
-            <div class="card-header py-2"><h6 class="card-title mb-0"><i class="fas fa-tv mr-1"></i> Info Device</h6></div>
-            <div class="card-body pb-0">
-              <div class="row">
-                <div class="col-md-3"><div class="form-group"><label>Device <span class="text-danger">*</span></label><select id="device_id" class="form-control"><option value="">-- Pilih Vendor dulu --</option></select></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Provinsi</label><input type="text" id="provinsi" class="form-control" readonly placeholder="Otomatis"></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Kota / Kabupaten</label><input type="text" id="kota" class="form-control" readonly placeholder="Otomatis"><input type="hidden" id="location"></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Ukuran (H x W)</label><input type="text" id="ukuran" class="form-control" readonly placeholder="Otomatis"></div></div>
-                <div class="col-md-3"><div class="form-group"><label>Contract Value <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <div class="input-group-prepend"><span class="input-group-text">Rp</span></div>
-                    <input type="number" id="contract_value" class="form-control" placeholder="Otomatis dari vendor" readonly>
-                  </div>
-                  <small class="text-muted"><i class="fas fa-info-circle"></i> Otomatis terisi saat device dipilih</small>
-                </div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card card-secondary card-outline mb-3">
-            <div class="card-header py-2"><h6 class="card-title mb-0"><i class="fas fa-file-contract mr-1"></i> Info Kontrak</h6></div>
-            <div class="card-body pb-0">
-              <div class="row">
-                <div class="col-md-6"><div class="form-group"><label>Start Contract <span class="text-danger">*</span></label><div class="input-group"><input type="date" id="start_contract" class="form-control"><div class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div></div></div></div>
-                <div class="col-md-6"><div class="form-group"><label>End Contract <span class="text-danger">*</span></label><div class="input-group"><input type="date" id="end_contract" class="form-control"><div class="input-group-append"><span class="input-group-text"><i class="far fa-calendar-alt"></i></span></div></div></div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card card-secondary card-outline mb-0">
-            <div class="card-header py-2 d-flex justify-content-between align-items-center">
-              <h6 class="card-title mb-0"><i class="fas fa-photo-video mr-1"></i> Upload Konten</h6>
-              <div class="d-flex align-items-center">
-                <small class="text-warning mr-2"><i class="fas fa-info-circle"></i> Video → H.264 MP4</small>
-                <button type="button" class="btn btn-sm btn-outline-primary" id="btnTambahKonten">
-                  <i class="fas fa-plus"></i> Tambah Konten
-                </button>
-              </div>
-            </div>
-            <div class="card-body" id="contentRows" style="display:none;"></div>
-          </div>
-        </div>
-        <div class="modal-footer bg-dark">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal"><i class="fas fa-times mr-1"></i>Batal</button>
-          <button type="button" class="btn btn-success" id="btnSimpan"><i class="fas fa-save mr-1"></i>Simpan Playlist</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   {{-- MODAL PREVIEW FILE FULLSCREEN --}}
   <div class="modal fade" id="filePreviewModal" tabindex="-1">
@@ -486,8 +418,7 @@
 <script src="plugins/datatables-buttons/js/buttons.bootstrap4.min.js"></script>
 <script src="dist/js/adminlte.min.js"></script>
 <script>
-let hapusId  = null;
-let rowCount = 0;
+let hapusId = null;
 $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
 
 // ── DataTable init ──
@@ -498,7 +429,7 @@ $(function () {
       search: "Cari:", lengthMenu: "Tampilkan _MENU_ data",
       info: "Menampilkan _START_ - _END_ dari _TOTAL_ data",
       infoEmpty: "Tidak ada data", zeroRecords: "Data tidak ditemukan",
-      paginate: { first:"Pertama", last:"Terakhir", next:"›", previous:"‹" }
+      paginate: { first:"Pertama", last:"Terakhir", next:"\u203a", previous:"\u2039" }
     },
     columnDefs: [{ orderable: false, targets: [6, 9] }],
     order: [[0, 'asc']]
@@ -516,23 +447,12 @@ function showToast(msg, type='success', dur=4000) {
 
 // ================================================================
 // PREVIEW PLAYLIST
-// Strategi:
-// 1. Tampilkan modal segera dengan data dari data-attribute (cepat)
-// 2. Fetch fresh dari /api/playlist/{id} untuk dapat konten terbaru
-// 3. Kalau fetch gagal, fallback ke resolved_items yang sudah ada di data-konten
 // ================================================================
 function bukaPreview(btn) {
-  const id        = btn.dataset.id;
-  const name      = btn.dataset.name;
-  const vendor    = btn.dataset.vendor;
-  const start     = btn.dataset.start;
-  const end       = btn.dataset.end;
-  const value     = btn.dataset.value;
-  const sisaLabel = btn.dataset.sisa;
-  const sisaClass = btn.dataset.sisaclass;
-  const status    = btn.dataset.status;
+  const id=btn.dataset.id, name=btn.dataset.name, vendor=btn.dataset.vendor;
+  const start=btn.dataset.start, end=btn.dataset.end, value=btn.dataset.value;
+  const sisaLabel=btn.dataset.sisa, sisaClass=btn.dataset.sisaclass, status=btn.dataset.status;
 
-  // Isi info data langsung
   document.getElementById('prev_name').textContent   = name;
   document.getElementById('prev_vendor').textContent = vendor;
   document.getElementById('prev_start').textContent  = start;
@@ -540,121 +460,73 @@ function bukaPreview(btn) {
   document.getElementById('prev_value').textContent  = Number(value).toLocaleString('id-ID');
   document.getElementById('prev_remaining_badge').innerHTML =
     `<span class="sisa-badge ${sisaClass} d-inline-flex" style="width:auto;border-radius:20px;padding:4px 14px;">${sisaLabel}</span>`;
-  const sc = status === 'approved' ? 'status-approved' : (status === 'rejected' ? 'status-rejected' : 'status-pending');
+  const sc = status==='paid'?'status-paid':(status==='approved'?'status-approved':(status==='rejected'?'status-rejected':'status-pending'));
   document.getElementById('prev_status').innerHTML = `<span class="${sc}">${status.toUpperCase()}</span>`;
 
-  // Tampilkan loading
   document.getElementById('kontenContainer').innerHTML =
     '<p class="text-muted text-center mb-0"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat konten dari server...</p>';
   document.getElementById('kontenCount').textContent = '';
   $('#previewModal').modal('show');
 
-  // Coba ambil data fresh via AJAX
-  // Controller sudah build resolved_items: playlist_items + contents + file_url
   fetch('/api/playlist/' + id, {
     headers: {
       'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
       'Accept': 'application/json'
     }
   })
-  .then(function(res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
-  .then(function(data) {
+  .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
+  .then(data => {
     if (data.status !== 'success') throw new Error(data.message || 'Response tidak sukses');
     tampilkanKonten(data.data.resolved_items || []);
   })
-  .catch(function(err) {
-    console.warn('[Preview] Fetch API gagal (' + err.message + '), pakai data lokal.');
-    // Fallback: pakai resolved_items dari data-attribute (sudah di-build controller saat render)
+  .catch(err => {
     let fallback = [];
-    try { fallback = JSON.parse(btn.dataset.konten || '[]'); } catch(e) { fallback = []; }
+    try { fallback = JSON.parse(btn.dataset.konten || '[]'); } catch(e) {}
     if (fallback.length > 0) {
       tampilkanKonten(fallback);
     } else {
       document.getElementById('kontenContainer').innerHTML =
-        '<div class="alert alert-warning mb-0">' +
-        '<i class="fas fa-exclamation-triangle mr-1"></i>' +
-        'Gagal memuat konten: ' + err.message +
-        '</div>';
+        `<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Gagal memuat konten: ${err.message}</div>`;
     }
   });
 }
 
-// ================================================================
-// Render konten ke dalam modal
-// Setiap item dari resolved_items (dibangun controller) punya:
-//   - file_url   : URL penuh (sudah include /storage/)
-//   - file_type  : 'image' atau 'video'
-//   - days       : array (sudah di-decode dari JSON string)
-//   - content    : object dari tabel contents (punya field 'title', 'file', 'type')
-//   - start_date, end_date, start_time, end_time, priority_mode
-// ================================================================
 function tampilkanKonten(kontenList) {
   const container = document.getElementById('kontenContainer');
   const countEl   = document.getElementById('kontenCount');
   countEl.textContent = (kontenList.length || 0) + ' konten';
-
   if (!kontenList || kontenList.length === 0) {
-    container.innerHTML =
-      '<p class="text-muted text-center mb-0">' +
-      '<i class="fas fa-inbox mr-1"></i>Belum ada konten untuk playlist ini.</p>';
+    container.innerHTML = '<p class="text-muted text-center mb-0"><i class="fas fa-inbox mr-1"></i>Belum ada konten untuk playlist ini.</p>';
     return;
   }
-
   let html = '<div class="row">';
   kontenList.forEach(function(k) {
     const fileUrl  = k.file_url || '';
     const fileType = k.file_type || (k.content ? k.content.type : '') || '';
-    const isVideo  = fileType === 'video' || /\.(mp4|mov|avi|mkv|webm)/i.test(fileUrl);
-    const isImage  = fileType === 'image' || /\.(jpg|jpeg|png|gif|webp|bmp)/i.test(fileUrl);
-
-    // Nama file
+    const isVideo  = fileType==='video' || /\.(mp4|mov|avi|mkv|webm)/i.test(fileUrl);
+    const isImage  = fileType==='image' || /\.(jpg|jpeg|png|gif|webp|bmp)/i.test(fileUrl);
     const namaFile = (k.content && k.content.title) ? k.content.title : 'File konten';
     const tipeBadge = isVideo
       ? '<span class="badge-video ml-1"><i class="fas fa-film"></i> video</span>'
       : (isImage ? '<span class="badge-image ml-1"><i class="fas fa-image"></i> gambar</span>' : '');
-
-    // Thumbnail
     let thumbHtml = '';
     if (fileUrl) {
       if (isImage) {
-        // onerror: tampilkan placeholder kalau gambar tidak bisa dimuat
-        thumbHtml = `<img src="${fileUrl}" class="konten-thumb"
-          onclick="previewFile('${fileUrl}','image')"
+        thumbHtml = `<img src="${fileUrl}" class="konten-thumb" onclick="previewFile('${fileUrl}','image')"
           onerror="this.closest('.thumb-wrap').innerHTML='<div class=\\'text-center py-3\\'><i class=\\'fas fa-image fa-2x text-muted\\'></i><br><small class=\\'text-muted\\'>Gambar tidak bisa dimuat</small></div>'"
           title="Klik untuk preview">`;
       } else if (isVideo) {
-        thumbHtml = `<video class="konten-thumb-video"
-          onclick="previewFile('${fileUrl}','video')"
-          title="Klik untuk preview" preload="metadata">
-          <source src="${fileUrl}">
-        </video>`;
+        thumbHtml = `<video class="konten-thumb-video" onclick="previewFile('${fileUrl}','video')" title="Klik untuk preview" preload="metadata"><source src="${fileUrl}"></video>`;
       } else {
-        thumbHtml = `<div class="text-center py-3">
-          <i class="fas fa-file fa-2x text-muted"></i>
-          <br><small class="text-muted">Tipe file tidak dikenali</small>
-        </div>`;
+        thumbHtml = '<div class="text-center py-3"><i class="fas fa-file fa-2x text-muted"></i><br><small class="text-muted">Tipe file tidak dikenali</small></div>';
       }
     } else {
-      thumbHtml = `<div class="text-center py-3">
-        <i class="fas fa-file-upload fa-2x text-muted"></i>
-        <br><small class="text-muted">File URL tidak tersedia</small>
-      </div>`;
+      thumbHtml = '<div class="text-center py-3"><i class="fas fa-file-upload fa-2x text-muted"></i><br><small class="text-muted">File URL tidak tersedia</small></div>';
     }
-
-    // Days: sudah array dari controller
     let daysArr = k.days || [];
-    if (typeof daysArr === 'string') {
-      try { daysArr = JSON.parse(daysArr); } catch(e) { daysArr = [daysArr]; }
-    }
+    if (typeof daysArr === 'string') { try { daysArr = JSON.parse(daysArr); } catch(e) { daysArr = [daysArr]; } }
     const daysText = (Array.isArray(daysArr) && daysArr.length > 0) ? daysArr.join(', ') : '-';
-
-    const prio = k.priority_mode
-      ? '<span class="badge badge-warning">Prioritas Aktif</span>'
-      : '<span class="text-muted small">Tidak aktif</span>';
-
+    const prio = k.priority_mode ? '<span class="badge badge-warning">Prioritas Aktif</span>' : '<span class="text-muted small">Tidak aktif</span>';
     html += `
     <div class="col-md-6 mb-3">
       <div class="konten-item">
@@ -664,30 +536,18 @@ function tampilkanKonten(kontenList) {
         </div>
         <div class="thumb-wrap mb-2">${thumbHtml}</div>
         <table class="table table-borderless table-sm mb-0" style="font-size:12px;">
-          <tr>
-            <th style="width:90px">Start Date</th>
-            <td>${k.start_date || '-'}</td>
-            <th>End Date</th>
-            <td>${k.end_date || '-'}</td>
-          </tr>
-          <tr>
-            <th>Start Time</th>
-            <td>${k.start_time || '-'}</td>
-            <th>End Time</th>
-            <td>${k.end_time || '-'}</td>
-          </tr>
+          <tr><th style="width:90px">Start Date</th><td>${k.start_date||'-'}</td><th>End Date</th><td>${k.end_date||'-'}</td></tr>
+          <tr><th>Start Time</th><td>${k.start_time||'-'}</td><th>End Time</th><td>${k.end_time||'-'}</td></tr>
           <tr><th>Hari Tayang</th><td colspan="3">${daysText}</td></tr>
           <tr><th>Prioritas</th><td colspan="3">${prio}</td></tr>
         </table>
       </div>
     </div>`;
   });
-
   html += '</div>';
   container.innerHTML = html;
 }
 
-// Preview file fullscreen
 function previewFile(url, type) {
   const cont = document.getElementById('filePreviewContent');
   if (type === 'image') {
@@ -704,58 +564,7 @@ function konfirmasiHapus(id, nama) {
   $('#modalHapus').modal('show');
 }
 
-function previewFilePicker(input, idx) {
-  const pv = document.getElementById('filePreview_'+idx);
-  const ne = document.getElementById('fileName_'+idx);
-  const te = document.getElementById('fileType_'+idx);
-  if (input.files && input.files[0]) {
-    const f = input.files[0];
-    ne.textContent = f.name;
-    te.innerHTML = f.type.startsWith('video/')
-      ? '<span class="badge-video"><i class="fas fa-film"></i> video→H.264</span>'
-      : f.type.startsWith('image/')
-        ? '<span class="badge-image"><i class="fas fa-image"></i> gambar</span>' : '';
-    pv.style.display = 'block';
-  } else {
-    pv.style.display = 'none';
-  }
-}
-
-function removeRow(btn) { btn.closest('.content-row').remove(); }
-
-function calcRemaining(idx) {
-  const sv = document.querySelector(`#contentRow_${idx} input[name="start_time[]"]`).value;
-  const ev = document.querySelector(`#contentRow_${idx} input[name="end_time[]"]`).value;
-  const el = document.getElementById('remaining_'+idx);
-  if (!sv || !ev) { el.value = ''; return; }
-  const [sh, sm] = sv.split(':').map(Number), [eh, em] = ev.split(':').map(Number);
-  let diff = (eh*60+em) - (sh*60+sm);
-  if (diff <= 0) diff += 1440;
-  const h = Math.floor(diff/60), m = diff%60;
-  el.value = h > 0 ? (m > 0 ? `${h} jam ${m} menit` : `${h} jam`) : `${m} menit`;
-}
-
-$(document).on('click', '.btn-preview-file-picker', function() {
-  const idx  = $(this).data('idx');
-  const fi   = document.querySelector(`#contentRow_${idx} input[type="file"]`);
-  const cont = document.getElementById('filePreviewContent');
-  cont.innerHTML = '';
-  if (!fi || !fi.files[0]) {
-    cont.innerHTML = '<p class="text-muted">Belum ada file dipilih.</p>';
-  } else {
-    const file = fi.files[0], url = URL.createObjectURL(file);
-    cont.innerHTML = file.type.startsWith('image/')
-      ? `<img src="${url}" class="img-fluid rounded">`
-      : file.type.startsWith('video/')
-        ? `<video controls class="w-100" style="max-height:400px"><source src="${url}" type="${file.type}"></video>`
-        : '<p class="text-muted">Preview tidak tersedia.</p>';
-  }
-  $('#filePreviewModal').modal('show');
-});
-
-$(document).ready(function() {
-
-  // ── HAPUS ──
+$(document).ready(function () {
   $('#btnKonfirmasiHapus').click(function() {
     if (!hapusId) return;
     const btn = $(this);
@@ -774,210 +583,8 @@ $(document).ready(function() {
       }
     });
   });
-
-  // ── TAMBAH ROW KONTEN ──
-  $('#btnTambahKonten').click(function() {
-    const idx = rowCount;
-    const hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-    const hariHTML = hariList.map(h =>
-      `<label class="mr-2" style="font-size:13px;"><input type="checkbox" name="days[${idx}][]" value="${h}" class="mr-1">${h}</label>`
-    ).join('');
-    const row = `
-    <div class="content-row" id="contentRow_${idx}">
-      <button type="button" class="btn btn-xs btn-danger btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button>
-      <div class="row align-items-end">
-        <div class="col-md-3">
-          <div class="form-group mb-2">
-            <label class="small">File <span class="text-danger">*</span></label>
-            <div class="custom-file">
-              <input type="file" name="file[]" class="custom-file-input" accept="video/*,image/*"
-                onchange="previewFilePicker(this,${idx});$(this).next().text(this.files[0]?this.files[0].name:'Pilih file')">
-              <label class="custom-file-label" style="font-size:12px;">Pilih file</label>
-            </div>
-          </div>
-          <div id="filePreview_${idx}" style="display:none;">
-            <small class="text-success"><i class="fas fa-check-circle"></i> <span id="fileName_${idx}"></span> <span id="fileType_${idx}" class="ml-1"></span></small>
-          </div>
-        </div>
-        <div class="col-md-2"><div class="form-group mb-2"><label class="small">Start Date</label><input type="date" name="start_date[]" class="form-control form-control-sm"></div></div>
-        <div class="col-md-2"><div class="form-group mb-2"><label class="small">End Date</label><input type="date" name="end_date[]" class="form-control form-control-sm"></div></div>
-        <div class="col-md-1" style="min-width:130px;"><div class="form-group mb-2"><label class="small">Start Time</label><input type="time" name="start_time[]" class="form-control form-control-sm" onchange="calcRemaining(${idx})"></div></div>
-        <div class="col-md-1" style="min-width:130px;"><div class="form-group mb-2"><label class="small">End Time</label><input type="time" name="end_time[]" class="form-control form-control-sm" onchange="calcRemaining(${idx})"></div></div>
-        <div class="col-md-1" style="min-width:120px;"><div class="form-group mb-2"><label class="small">Remaining</label><input type="text" id="remaining_${idx}" class="form-control form-control-sm remaining-field" readonly placeholder="Otomatis"></div></div>
-        <div class="col-md-1"><div class="form-group mb-2"><label class="small d-block">Prioritas</label>
-          <div class="icheck-primary d-inline">
-            <input type="checkbox" name="priority_mode[${idx}]" id="prio_${idx}" value="1">
-            <label for="prio_${idx}"> Aktif</label>
-          </div>
-        </div></div>
-        <div class="col-auto"><div class="form-group mb-2" style="padding-top:20px;">
-          <button type="button" class="btn btn-sm btn-outline-info btn-preview-file-picker" data-idx="${idx}"><i class="fas fa-eye"></i></button>
-        </div></div>
-      </div>
-      <div class="mt-2"><small class="text-muted mr-2"><i class="fas fa-calendar-week mr-1"></i>Hari Tayang:</small>${hariHTML}</div>
-    </div>`;
-    document.getElementById('contentRows').style.display = 'block';
-    document.getElementById('contentRows').insertAdjacentHTML('beforeend', row);
-    rowCount++;
-  });
-
-  // ── VENDOR CHANGE ──
-  $('#vendor_select').change(function() {
-    const vId = $(this).val();
-    $('#device_id').html('<option value="">-- Pilih Vendor dulu --</option>');
-    $('#provinsi,#kota,#ukuran').val(''); $('#location,#contract_value').val('');
-    if (!vId) return;
-    $('#device_id').html('<option value="">Loading...</option>');
-    $.ajax({
-      url: '/get-devices/' + vId, method: 'GET',
-      success: function(data) {
-        let html = '<option value="">-- Pilih Device --</option>';
-        data.forEach(d => {
-          html += `<option value="${d.id}"
-            data-provinsi="${d.provinsi||''}"
-            data-kota="${d.kota||''}"
-            data-width="${d.r_width||''}"
-            data-height="${d.r_height||''}"
-            data-price="${d.price||d.contract_value||''}">${d.device_name}</option>`;
-        });
-        $('#device_id').html(html);
-        if (!data.length) {
-          $('#device_id').html('<option value="">-- Vendor belum punya device --</option>');
-          showToast('Vendor ini belum punya device!', 'warning');
-        }
-      },
-      error: function(xhr) {
-        $('#device_id').html('<option value="">-- Gagal load --</option>');
-        showToast('Gagal ambil device (' + xhr.status + ')', 'error');
-      }
-    });
-  });
-
-  // ── DEVICE CHANGE ──
-  $('#device_id').change(function() {
-    const sel = $(this).find(':selected');
-    const provinsi = sel.data('provinsi') || '', kota = sel.data('kota') || '';
-    $('#provinsi').val(provinsi); $('#kota').val(kota);
-    $('#ukuran').val(sel.data('width') && sel.data('height') ? sel.data('height') + ' x ' + sel.data('width') : '');
-    $('#location').val(provinsi && kota ? provinsi + ', ' + kota : (provinsi || kota));
-    const price = sel.data('price') || '';
-    if (price) {
-      $('#contract_value').val(price);
-    } else {
-      const devId = $(this).val();
-      if (devId) {
-        $.ajax({
-          url: '/get-device/' + devId, method: 'GET',
-          success: function(d) {
-            if (d && (d.price || d.contract_value)) {
-              $('#contract_value').val(d.price || d.contract_value);
-            }
-          }
-        });
-      }
-    }
-  });
-
-  // ── SIMPAN PLAYLIST ──
-  $('#btnSimpan').click(function() {
-    const btn  = $(this);
-    const pName = $('#playlist_name').val().trim();
-    const vId   = $('#vendor_select').val();
-    const dId   = $('#device_id').val();
-    const sc    = $('#start_contract').val();
-    const ec    = $('#end_contract').val();
-    const cv    = $('#contract_value').val();
-
-    if (!pName) { showToast('Nama playlist wajib diisi!', 'error'); return; }
-    if (!vId)   { showToast('Vendor wajib dipilih!', 'error'); return; }
-    if (!dId)   { showToast('Device wajib dipilih!', 'error'); return; }
-    if (!sc)    { showToast('Start contract wajib diisi!', 'error'); return; }
-    if (!ec)    { showToast('End contract wajib diisi!', 'error'); return; }
-    if (!cv)    { showToast('Contract value wajib diisi!', 'error'); return; }
-
-    // Cek minimal 1 file ada
-    let adaFile = false;
-    $('input[name="file[]"]').each(function() {
-      if (this.files && this.files[0]) { adaFile = true; return false; }
-    });
-    if (!adaFile) { showToast('Minimal upload 1 file konten!', 'error'); return; }
-
-    const fd = new FormData();
-    fd.append('_token', $('meta[name="csrf-token"]').attr('content'));
-    fd.append('playlist_name', pName);
-    fd.append('vendor_id', vId);
-    fd.append('device_id', dId);
-    fd.append('start_contract', sc);
-    fd.append('end_contract', ec);
-    fd.append('contract_value', cv);
-    fd.append('location', $('#location').val() || '');
-    fd.append('cust_id', $('#cust_id').val() || '1');
-
-    // Iterasi per content-row supaya index konsisten antara file dan data
-    // FIX: kirim "start_date[0]", "start_date[1]", ... (indexed)
-    // bukan "start_date[]" (flat) supaya temen bisa akses $request->start_date[$index]
-    $('.content-row').each(function(i) {
-      const row = $(this);
-      const fileInput = row.find('input[name="file[]"]')[0];
-      if (fileInput && fileInput.files && fileInput.files[0]) {
-        fd.append('file[]', fileInput.files[0]);
-      }
-      fd.append('start_date[' + i + ']', row.find('input[name="start_date[]"]').val() || '');
-      fd.append('end_date[' + i + ']',   row.find('input[name="end_date[]"]').val()   || '');
-      fd.append('start_time[' + i + ']', row.find('input[name="start_time[]"]').val() || '');
-      fd.append('end_time[' + i + ']',   row.find('input[name="end_time[]"]').val()   || '');
-
-      // Days: days[i][]
-      row.find('input[type="checkbox"][name^="days"]').each(function() {
-        if ($(this).is(':checked')) {
-          fd.append('days[' + i + '][]', $(this).val());
-        }
-      });
-
-      // FIX priority_mode: kirim key HANYA kalau checked
-      // saveplaylist temen pakai isset() — kirim '0' tetap dianggap ada → priority = 1 (salah!)
-      if (row.find('input[name^="priority_mode"]').is(':checked')) {
-        fd.append('priority_mode[' + i + ']', '1');
-      }
-      // Kalau tidak checked: SKIP, jangan append — isset() = false di temen → priority = 0
-    });
-
-    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Menyimpan...');
-
-    $.ajax({
-      url: '{{ route("playlist.store") }}',
-      method: 'POST', data: fd, contentType: false, processData: false, timeout: 600000,
-      success: function(res) {
-        showToast(res.message || 'Playlist berhasil disimpan!', 'success');
-        $('#modalTambahPlaylist').modal('hide');
-        setTimeout(() => location.reload(), 1600);
-      },
-      error: function(err) {
-        const r = err.responseJSON;
-        let msg = 'Error ' + err.status;
-        if (err.status === 419)   msg = 'Session expired, refresh halaman!';
-        else if (r?.errors)       msg = Object.values(r.errors)[0][0];
-        else if (r?.message)      msg = r.message;
-        showToast(msg, 'error');
-        console.error('Store error:', err.responseText);
-      },
-      complete: function() {
-        btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Playlist');
-      }
-    });
-  });
-
-  // ── RESET MODAL saat ditutup ──
-  $('#modalTambahPlaylist').on('hidden.bs.modal', function() {
-    $('#playlist_name,#start_contract,#end_contract,#contract_value').val('');
-    $('#vendor_select').val('');
-    $('#device_id').html('<option value="">-- Pilih Vendor dulu --</option>');
-    $('#provinsi,#kota,#ukuran,#location').val('');
-    document.getElementById('contentRows').innerHTML = '';
-    document.getElementById('contentRows').style.display = 'none';
-    rowCount = 0;
-  });
 });
 </script>
+
 </body>
 </html>

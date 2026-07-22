@@ -19,17 +19,20 @@
     .sisa-badge .hari-num{font-size:16px;font-weight:800;line-height:1}
 
     /* ── Status badge ── */
+    .status-paid{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
+    .status-unpaid{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
+    /* legacy aliases biar tidak crash kalau ada data lama */
     .status-pending{background:#ffc107;color:#333;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
     .status-approved{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
     .status-rejected{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
 
     /* ── Small box override (ukuran sama kayak gambar 3) ── */
     .small-box{border-radius:10px;overflow:hidden;box-shadow:6 4px 10px rgba(0,0,0,.25);position:relative}
-    .small-box .inner{padding:24px 17px}
+    .small-box .inner{padding:26px 17px}
     .small-box h3{font-size:37px;font-weight:900;margin:0;line-height:1}
-    .small-box h5.rp-kecil{font-size:28px!important;padding:}
+    .small-box h5.rp-kecil{font-size:28px!important;}
     .small-box p{font-size:15px;margin-top:6px;margin-bottom:0}
-    .small-box .icon{position:absolute;top:10px;right:15px;font-size:70px;opacity:.9.9;pointer-events:none}
+    .small-box .icon{position:absolute;top:6px;right:15px;font-size:70px;opacity:.9;pointer-events:none}
     .small-box-footer{display:block;padding:8px;text-align:center;color:#fff;background:rgba(0,0,0,.15);text-decoration:none;font-size:13px}
     .small-box-footer:hover{color:#fff;background:rgba(0,0,0,.25)}
 
@@ -142,6 +145,11 @@
               <i class="nav-icon fas fa-film"></i><p>Daftar Playlist</p>
             </a>
           </li>
+          <li class="nav-item">
+            <a href="{{ route('permintaan.index') }}" class="nav-link">
+              <i class="nav-icon fas fa-clipboard-list"></i><p>Daftar Permintaan</p>
+            </a>
+          </li>
         </ul>
       </nav>
     </div>
@@ -165,24 +173,38 @@
 
         @php
           use Carbon\Carbon;
-          $approved = $pending = $rejected = 0;
+          use App\Models\Invoice;
+
+          $localInvoices = Invoice::all()->keyBy('playlist_id');
+
+          $paid = $unpaid = 0;
           $totalPengeluaran = 0;
-          foreach ($playlists as $p) {
-            $st = match((string)($p['status'] ?? '')) {
-              '2','approved' => 'approved',
-              '3','rejected' => 'rejected',
-              default        => 'pending',
-            };
-            // Hitung total pengeluaran hanya dari yang approved
-            if ($st === 'approved') { $approved++; $totalPengeluaran += (float)($p['contract_value'] ?? 0); }
-            elseif ($st === 'pending') $pending++;
-            else $rejected++;
+
+          foreach ($playlists as &$p) {
+            $inv = $localInvoices->get($p['id']);
+            
+            // Ngecek gabungan dari API sama Lokal (DITAMBAHIN ANGKA '1')
+            $apiStatus = strtolower((string)($p['status'] ?? ''));
+            $localStatus = $inv ? strtolower($inv->status) : 'unpaid';
+            $isPaid = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']);
+            
+            $p['local_status'] = $isPaid ? 'paid' : 'unpaid';
+            $p['local_amount'] = $inv ? $inv->amount : ($p['contract_value'] ?? 0);
+
+            // Total duit cuma bertambah kalau lunas
+            if ($p['local_status'] === 'paid') {
+                $paid++;
+                $totalPengeluaran += (float)$p['local_amount'];
+            } else {
+                $unpaid++;
+            }
           }
+          
           $deviceMap = collect($devices ?? [])->keyBy('id');
           $vendorMap = collect($vendors ?? [])->keyBy('id');
         @endphp
 
-        {{-- SUMMARY CARDS — ukuran sama kayak gambar 3 --}}
+        {{-- SUMMARY CARDS --}}
         <div class="row mb-3">
           <div class="col-lg-3 col-6">
             <div class="small-box" style="background:linear-gradient(135deg,#1a3a6b,#2d5fa0);color:#fff;">
@@ -191,27 +213,27 @@
                 <p>Total Pengeluaran</p>
               </div>
               <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
-              <a href="{{ route('playlist.index') }}" class="small-box-footer">Dari playlist approved <i class="fas fa-arrow-circle-right"></i></a>
+              <a href="{{ route('playlist.index') }}" class="small-box-footer">Dari playlist paid <i class="fas fa-arrow-circle-right"></i></a>
             </div>
           </div>
           <div class="col-lg-3 col-6">
             <div class="small-box bg-success">
-              <div class="inner"><h3>{{ $approved }}</h3><p>Approved</p></div>
+              <div class="inner"><h3>{{ $paid }}</h3><p>Paid</p></div>
               <div class="icon"><i class="fas fa-check-circle"></i></div>
               <a href="{{ route('playlist.index') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
             </div>
           </div>
           <div class="col-lg-3 col-6">
-            <div class="small-box bg-warning">
-              <div class="inner"><h3>{{ $pending }}</h3><p>Pending</p></div>
-              <div class="icon"><i class="fas fa-clock"></i></div>
+            <div class="small-box bg-danger">
+              <div class="inner"><h3>{{ $unpaid }}</h3><p>Unpaid</p></div>
+              <div class="icon"><i class="fas fa-times-circle"></i></div>
               <a href="{{ route('playlist.index') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
             </div>
           </div>
           <div class="col-lg-3 col-6">
-            <div class="small-box bg-danger">
-              <div class="inner"><h3>{{ $rejected }}</h3><p>Rejected</p></div>
-              <div class="icon"><i class="fas fa-times-circle"></i></div>
+            <div class="small-box" style="background:linear-gradient(135deg,#555,#777);color:#fff;">
+              <div class="inner"><h3>{{ count($playlists) }}</h3><p>Total Playlist</p></div>
+              <div class="icon"><i class="fas fa-film"></i></div>
               <a href="{{ route('playlist.index') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
             </div>
           </div>
@@ -247,7 +269,7 @@
                         elseif ($diff >= 11) { $sisaClass = 'warning'; }
                         else { $sisaClass = 'danger'; }
                         $sisaLabel = $diff > 0 ? $diff.' hari' : abs($diff).' hari (lewat)';
-                        $val   = $p['contract_value'] ?? 0;
+                        $val   = $p['local_amount'];
                         $vName = $vendorMap[$p['cust_id'] ?? '']['nama'] ?? $vendorMap[$p['vendor_id'] ?? '']['nama'] ?? ($p['cust_id'] ?? '-');
                         $dName = $deviceMap[$p['device_id'] ?? '']['device_name'] ?? '-';
                       @endphp
