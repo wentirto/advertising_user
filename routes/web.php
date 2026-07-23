@@ -2,61 +2,40 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VendorDashboardController;
+use App\Http\Controllers\PlaylistController;
+use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\InvoiceController;
 
-// ================= DASHBOARD =================
-Route::get('/', [VendorDashboardController::class, 'dashboard'])->name('dashboard.list');
-Route::get('/dashboard', [VendorDashboardController::class, 'dashboard']);
+// Bikin / langsung nembak ke Dashboard Vendor
+Route::get('/', function () {
+    return redirect()->route('vendor.dashboard');
+});
 
-// ================= DEVICE =================
-Route::get('/get-devices/{vendor_id}', [VendorDashboardController::class, 'getDevicesByVendor'])
-    ->name('devices.byVendor');
+// ================= GRUP VENDOR (UI/UX) =================
+Route::prefix('vendor')->name('vendor.')->group(function () {
+    Route::get('/dashboard', [VendorDashboardController::class, 'dashboard'])->name('dashboard');
+    Route::get('/playlist', [PlaylistController::class, 'playlistIndex'])->name('playlist');
+    Route::get('/permintaan', [PlaylistController::class, 'permintaanIndex'])->name('permintaan');
+    Route::get('/invoice/{id}', [InvoiceController::class, 'invoice'])->name('invoice');
+});
 
-Route::get('/get-device/{id}', [VendorDashboardController::class, 'getDevice'])
-    ->name('device.single');
+// ================= GRUP USER =================
+Route::prefix('user')->name('user.')->group(function () {
+    // Controller untuk user nanti masuk sini
+});
 
-// BARU: dipakai di Step 1 wizard "Tambah Playlist" (card pilih lokasi, tanpa info vendor)
-Route::get('/get-locations', [VendorDashboardController::class, 'getAvailableLocations'])
-    ->name('locations.available');
+// ================= API & AJAX LOGIC =================
+// (Sengaja gak dikasih prefix 'vendor' biar Javascript lu yang lama tetep jalan)
+Route::get('/get-devices/{vendor_id}', [DeviceController::class, 'getDevicesByVendor']);
+Route::get('/get-device/{id}', [DeviceController::class, 'getDevice']);
+Route::get('/get-locations', [DeviceController::class, 'getAvailableLocations']);
+Route::get('/get-device-schedule/{id}', [DeviceController::class, 'getDeviceSchedule']);
 
-// BARU: dipakai di Step 2 wizard "Tambah Playlist" (jadwal terisi + kalender pemakaian)
-Route::get('/get-device-schedule/{id}', [VendorDashboardController::class, 'getDeviceSchedule'])
-    ->name('device.schedule');
+Route::get('/get-playlists-by-device/{id}', [PlaylistController::class, 'getPlaylistsByDevice']);
+Route::get('/file-proxy', [PlaylistController::class, 'fileProxy'])->name('file.proxy');
+Route::get('/api/playlist/{id}', [PlaylistController::class, 'getPlaylistDetail']);
 
-// BARU: playlist by device (unpaid only) — dipakai di step 1 permintaan.blade
-Route::get('/get-playlists-by-device/{id}', [VendorDashboardController::class, 'getPlaylistsByDevice'])
-    ->name('playlists.byDevice');
-
-// BARU: proxy file (gambar/video) supaya gak ketahan halaman peringatan ngrok free
-// — <img>/<video> di browser gak bisa kirim header custom, jadi di-proxy lewat sini.
-Route::get('/file-proxy', [VendorDashboardController::class, 'fileProxy'])
-    ->name('file.proxy');
-
-// ================= PLAYLIST =================
-Route::get('/playlist', [VendorDashboardController::class, 'playlistIndex'])
-    ->name('playlist.index');
-
-// Halaman Daftar Permintaan — full page wizard tambah playlist (tanpa modal)
-Route::get('/permintaan', [VendorDashboardController::class, 'permintaanIndex'])
-    ->name('permintaan.index');
-
-// FIX: route ini dipake di JS previewPlaylist() → fetch('/api/playlist/'+id)
-Route::get('/api/playlist/{id}', [VendorDashboardController::class, 'getPlaylistDetail'])
-    ->name('playlist.detail');
-
-Route::post('/playlist/store', [VendorDashboardController::class, 'storePlaylist'])
-    ->name('playlist.store');
-
-Route::put('/playlist/update/{id}', [VendorDashboardController::class, 'updatePlaylist'])
-    ->name('playlist.update');
-
-// Fallback POST untuk AJAX _method=PUT
-Route::post('/playlist/update/{id}', [VendorDashboardController::class, 'updatePlaylist']);
-
-// FIX: nama route 'playlist.delete' harus konsisten dengan JS di view
-// JS pakai: url:'/playlist/delete/'+hapusId → DELETE method
-Route::delete('/playlist/delete/{id}', [VendorDashboardController::class, 'deletePlaylist'])
-    ->name('playlist.delete');
-
-// BARU: halaman invoice (AdminLTE style) — dibuka dari tombol hijau di tabel playlist
-Route::get('/playlist/{id}/invoice', [VendorDashboardController::class, 'invoice'])
-    ->name('playlist.invoice');
+Route::post('/playlist/store', [PlaylistController::class, 'storePlaylist'])->name('vendor.playlist.store');
+Route::put('/playlist/update/{id}', [PlaylistController::class, 'updatePlaylist']);
+Route::post('/playlist/update/{id}', [PlaylistController::class, 'updatePlaylist']); // Fallback buat method spoofing
+Route::delete('/playlist/delete/{id}', [PlaylistController::class, 'deletePlaylist']);

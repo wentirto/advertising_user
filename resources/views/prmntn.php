@@ -298,9 +298,7 @@
                 <div class="col-md-3">
                   <div class="form-group">
                     <label>Contract Value</label>
-                    {{-- hidden field berisi angka murni untuk dikirim ke DB --}}
                     <input type="hidden" id="contract_value">
-                    {{-- display Rp format --}}
                     <div class="contract-display" id="contract_value_display">Rp 0</div>
                     <small class="text-muted">Total estimasi berdasarkan slot waktu</small>
                   </div>
@@ -335,7 +333,7 @@
     </section>
   </div>
 
-  {{-- MODAL PREVIEW PLAYLIST (sama persis dengan playlist.blade) --}}
+  {{-- MODAL PREVIEW PLAYLIST --}}
   <div class="modal fade" id="previewModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -395,9 +393,6 @@
 <script src="plugins/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="dist/js/adminlte.min.js"></script>
 <script>
-// ================================================================
-// STATE
-// ================================================================
 var rowCount = 0;
 var selectedDevice = null;
 var deviceBookings = [];
@@ -405,16 +400,11 @@ var drumReady = false;
 var rangeStart = null;
 var rangeEnd   = null;
 var calYear, calMonth;
-var slotDurasiDetik = 0; // total detik dari jam mulai-selesai x jumlah hari
-
+var slotDurasiDetik = 0; 
 var calColorPalette = ['#4db6ac','#64b5f6','#ba68c8','#ffb74d','#81c784','#f06292','#4dd0e1','#aed581','#ff8a65','#90a4ae'];
 
 $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
 
-
-// ================================================================
-// TOAST
-// ================================================================
 function showToast(msg, type, dur) {
   type = type || 'success'; dur = dur || 4000;
   var icons = { success:'<i class="fas fa-check-circle"></i>', error:'<i class="fas fa-times-circle"></i>', warning:'<i class="fas fa-exclamation-triangle"></i>' };
@@ -425,13 +415,8 @@ function showToast(msg, type, dur) {
   setTimeout(function(){ t.classList.add('hide'); setTimeout(function(){ t.remove(); }, 400); }, dur);
 }
 
-// ================================================================
-// HELPERS
-// ================================================================
 function formatTanggalID(dateStr) {
   if (!dateStr) return '-';
-  // Ambil hanya bagian tanggal saja (sebelum spasi), handle format:
-  // 'YYYY-MM-DD', 'YYYY-MM-DD HH:MM:SS', 'YYYY-MM-DDTHH:MM:SS', dll
   var datePart = String(dateStr).split(' ')[0].split('T')[0];
   var p = datePart.split('-').map(Number);
   if (p.length < 3 || isNaN(p[0]) || isNaN(p[1]) || isNaN(p[2])) return dateStr;
@@ -453,32 +438,25 @@ function formatRupiah(angka) {
   return 'Rp ' + Math.round(angka).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
 
-// Snap ke kelipatan 15 (ceiling): 1-15 → 15, 16-30 → 30, dst
-// Misal: ngisi 5 → 15, ngisi 16 → 30, ngisi 31 → 45
-function snapSatuan(val) {
-  val = parseInt(val) || 15;
-  if (val < 1) return 15;
-  // ceil ke kelipatan 15
-  return Math.ceil(val / 15) * 15;
-}
-
-// Harga per blok 15 detik = Rp 50.000
-// Total harga = ceil(total_slot_detik / 15) * 50.000
-function hargaPerSatuan(satuanDtk) {
-  // satuanDtk tidak lagi dipakai sebagai multiplier, semua pakai blok 15 dtk
-  return 50000; // per blok 15 detik
-}
-
-// Hitung total harga slot: ceil(total_detik_slot / 15) * 50.000
-// Tidak bergantung durasi konten — membeli slot waktu
-function hitungHargaSlot(slotDtk, satuanDtk) {
+// ================================================================
+// RUMUS BARU (Disesuaikan dengan permintaan)
+// ================================================================
+function hitungHargaRow(slotDtk, durasiKontenDtk) {
   if (!slotDtk) return 0;
-  return Math.ceil(slotDtk / 15) * 50000;
+  var durFix = durasiKontenDtk > 0 ? durasiKontenDtk : 15;
+  
+  // 1. Total durasi konten ÷ 15 detik = blok
+  var blok = Math.ceil(durFix / 15);
+  
+  // 2. Blok × harga per 15 detik (50.000) = hasil
+  var hargaSatuTayang = blok * 50000;
+  
+  // 3. Hasil × total pengulangan konten = harga yang harus dibayar
+  var jumlahPutar = Math.floor(slotDtk / durFix);
+  
+  return hargaSatuTayang * jumlahPutar;
 }
 
-// ================================================================
-// HITUNG SLOT DURASI
-// ================================================================
 function hitungSlotDurasi() {
   var startTime = $('#s2_start_time').val() || '00:00';
   var endTime   = $('#s2_end_time').val()   || '00:00';
@@ -499,33 +477,32 @@ function hitungSlotDurasi() {
   return slotDurasiDetik;
 }
 
-// ================================================================
-// UPDATE CONTRACT VALUE (berdasarkan slot, bukan per konten)
-// ================================================================
 function updateContractValue() {
   hitungSlotDurasi();
-  // Ambil satuan dari baris pertama (semua baris pakai satuan yang sama)
-  var satuanDtk = 15;
-  var firstSatuan = document.querySelector('input.satuan-snap');
-  if (firstSatuan) satuanDtk = parseInt(firstSatuan.value) || 15;
-
-  var total = hitungHargaSlot(slotDurasiDetik, satuanDtk);
-  $('#contract_value').val(Math.round(total));
-  $('#contract_value_display').text(formatRupiah(total));
-  // update semua baris invoice detail
+  var grandTotal = 0;
+  
   document.querySelectorAll('.content-row').forEach(function(row) {
-    updateInvoiceRow(row.id.replace('contentRow_',''));
+    var idx = row.id.replace('contentRow_', '');
+    var durMnt = parseInt(row.querySelector('input[name="durasi_konten_menit[]"]').value) || 0;
+    var durDtk = parseInt(row.querySelector('input[name="durasi_konten_detik[]"]').value) || 0;
+    var durKonten = (durMnt * 60) + durDtk;
+    
+    // Panggil rumus baru
+    grandTotal += hitungHargaRow(slotDurasiDetik, durKonten);
+    
+    updateInvoiceRow(idx);
   });
+
+  $('#contract_value').val(Math.round(grandTotal));
+  $('#contract_value_display').text(formatRupiah(grandTotal));
 }
 
-// Update display satu baris (Durasi Tayang, Jumlah Putar, Estimasi Harga)
 function updateInvoiceRow(idx) {
   var row = document.getElementById('contentRow_' + idx);
   if (!row) return;
 
   var durMntEl  = row.querySelector('input[name="durasi_konten_menit[]"]');
   var durDtkEl  = row.querySelector('input[name="durasi_konten_detik[]"]');
-  var satuanEl  = row.querySelector('input.satuan-snap');
   var tayangEl  = document.getElementById('durasi_tayang_' + idx);
   var jumlahEl  = document.getElementById('jumlah_putar_' + idx);
   var hargaEl   = document.getElementById('harga_konten_' + idx);
@@ -533,37 +510,27 @@ function updateInvoiceRow(idx) {
   var durMnt = parseInt(durMntEl ? durMntEl.value : 0) || 0;
   var durDtk = parseInt(durDtkEl ? durDtkEl.value : 0) || 0;
   var durKontenDtk = durMnt * 60 + durDtk;
-  var satuanDtk = parseInt(satuanEl ? satuanEl.value : 15) || 15;
 
-  // Durasi Tayang = slot durasi
   var slotDtk = slotDurasiDetik || hitungSlotDurasi();
   var jamSlot = Math.floor(slotDtk / 3600);
   var menitSlot = Math.floor((slotDtk % 3600) / 60);
   if (tayangEl) tayangEl.textContent = jamSlot + ' jam ' + menitSlot + ' menit (' + slotDtk + ' detik)';
 
-  // Jumlah Putar
+  var durFix = durKontenDtk > 0 ? durKontenDtk : 15;
+  var jumlahPutar = Math.floor(slotDtk / durFix);
   if (jumlahEl) {
     if (durKontenDtk > 0) {
-      var jumlahPutar = slotDtk / durKontenDtk;
-      jumlahEl.textContent = jumlahPutar.toFixed(2) + ' kali';
+      jumlahEl.textContent = jumlahPutar + ' kali';
     } else {
       jumlahEl.textContent = '-';
     }
   }
 
-  // Estimasi Harga (per baris = total slot / tidak bergantung jumlah file)
-  var harga = hitungHargaSlot(slotDtk, satuanDtk);
+  // Panggil rumus baru
+  var harga = hitungHargaRow(slotDtk, durKontenDtk);
   if (hargaEl) hargaEl.innerHTML = '<strong>' + formatRupiah(harga) + '</strong>';
-
-  // Update contract value dari baris ini (semua baris pakai satuan masing2 tapi slot sama)
-  $('#contract_value').val(Math.round(harga));
-  $('#contract_value_display').text(formatRupiah(harga));
 }
 
-
-// ================================================================
-// WIZARD
-// ================================================================
 function gotoStep(n) {
   $('#stepLokasi, #stepJadwal, #stepForm').hide();
   if (n === 1) $('#stepLokasi').show();
@@ -592,18 +559,13 @@ function handleStep2Continue() {
   gotoStep(3);
 }
 
-// ================================================================
-// STEP 1 — Load lokasi
-// ================================================================
 function loadLokasi() {
-  document.getElementById('lokasiContainer').innerHTML =
-    '<div class="col-12 text-center text-muted py-5"><i class="fas fa-spinner fa-spin fa-2x mb-2 d-block"></i>Memuat lokasi...</div>';
+  document.getElementById('lokasiContainer').innerHTML = '<div class="col-12 text-center text-muted py-5"><i class="fas fa-spinner fa-spin fa-2x mb-2 d-block"></i>Memuat lokasi...</div>';
   fetch('/get-locations')
     .then(function(r){ return r.json(); })
     .then(function(list){
       if (!Array.isArray(list) || !list.length) {
-        document.getElementById('lokasiContainer').innerHTML =
-          '<div class="col-12 text-center text-muted py-5"><i class="fas fa-tv fa-2x mb-2 d-block"></i>Belum ada lokasi tersedia.</div>';
+        document.getElementById('lokasiContainer').innerHTML = '<div class="col-12 text-center text-muted py-5"><i class="fas fa-tv fa-2x mb-2 d-block"></i>Belum ada lokasi tersedia.</div>';
         return;
       }
       var html = '';
@@ -627,8 +589,7 @@ function loadLokasi() {
       document.getElementById('lokasiContainer').innerHTML = html;
     })
     .catch(function(err){
-      document.getElementById('lokasiContainer').innerHTML =
-        '<div class="col-12 text-center text-danger py-5">Gagal memuat lokasi: ' + err.message + '</div>';
+      document.getElementById('lokasiContainer').innerHTML = '<div class="col-12 text-center text-danger py-5">Gagal memuat lokasi: ' + err.message + '</div>';
     });
 }
 
@@ -646,36 +607,26 @@ $(document).on('click', '.lokasi-card', function(){
   $('#deviceInfoName').text(d.name);
   $('#deviceInfoLoc').text((d.kota||'-') + ', ' + (d.provinsi||'-'));
   
-  // Munculin tabel playlist unpaid untuk device ini
   $('#unpaidDeviceName').text(d.name);
   $('#unpaidPlaylistBody').html('<tr><td colspan="9" class="text-center py-3"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat playlist...</td></tr>');
   $('#playlistUnpaidSection').show();
   
-  console.log('[DEBUG] Fetching playlists for device:', d.id);
-  
   fetch('/get-playlists-by-device/' + d.id)
-    .then(function(r){ 
-      console.log('[DEBUG] Response status:', r.status);
-      return r.json(); 
-    })
+    .then(function(r){ return r.json(); })
     .then(function(res){
-      console.log('[DEBUG] Response data:', res);
       if (res.status !== 'success') throw new Error(res.message||'Gagal ambil playlist');
       renderPlaylistUnpaid(res.playlists || []);
     })
     .catch(function(err){
-      console.error('[DEBUG] Fetch error:', err);
       $('#unpaidPlaylistBody').html('<tr><td colspan="9" class="text-center text-danger py-3">Gagal memuat: ' + err.message + '</td></tr>');
     });
 });
 
-// Button lanjut ke step 2 (buat playlist baru)
 $(document).on('click', '#btnLanjutStep2', function(){
   if (!selectedDevice) {
     showToast('Pilih lokasi/device terlebih dahulu!', 'error');
     return;
   }
-  // Load schedule & calendar
   rangeStart = null; rangeEnd = null;
   updateRangeAlert();
   document.getElementById('calendarContainer').innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat kalender...</p>';
@@ -694,10 +645,7 @@ $(document).on('click', '#btnLanjutStep2', function(){
     .catch(function(err){ showToast('Gagal ambil jadwal: ' + err.message, 'error'); });
 });
 
-// Render tabel playlist unpaid
 function renderPlaylistUnpaid(playlists) {
-  console.log('[DEBUG] renderPlaylistUnpaid called with:', playlists);
-  
   if (!playlists.length) {
     $('#unpaidPlaylistBody').html('<tr><td colspan="9" class="text-center text-muted py-3"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>Tidak ada playlist unpaid di device ini.</td></tr>');
     $('#unpaidCount').text('0 unpaid');
@@ -712,7 +660,6 @@ function renderPlaylistUnpaid(playlists) {
     var jamTayang = (p.start_time||'00:00') + ' – ' + (p.end_time||'00:00');
     var val = parseFloat(p.contract_value||0);
     
-    // Hitung sisa hari
     var endDate = new Date(p.end_contract);
     var now = new Date();
     var diffDays = Math.floor((endDate - now) / 86400000);
@@ -729,35 +676,17 @@ function renderPlaylistUnpaid(playlists) {
       + '<td>' + start + '</td>'
       + '<td>' + end + '</td>'
       + '<td>' + jamTayang + '</td>'
-      + '<td class="text-center">'
-      + '<div class="sisa-mini ' + sisaClass + '">'
-      + '<div style="font-size:16px">' + sisaLabel + '</div>'
-      + '<div style="font-size:9px">hari</div>'
-      + '</div></td>'
+      + '<td class="text-center"><div class="sisa-mini ' + sisaClass + '"><div style="font-size:16px">' + sisaLabel + '</div><div style="font-size:9px">hari</div></div></td>'
       + '<td class="text-center"><span class="' + statusClass + '">' + status.toUpperCase() + '</span></td>'
       + '<td>Rp ' + Math.round(val).toLocaleString('id-ID') + '</td>'
       + '<td class="text-center">'
-      + '<button class="btn btn-xs btn-info mr-1 btn-preview-unpaid" title="Preview"'
-      + ' data-id="' + (p.id||'') + '"'
-      + ' data-name="' + (p.playlist_name||'').replace(/"/g,'&quot;') + '"'
-      + ' data-start="' + (p.start_contract||'') + '"'
-      + ' data-end="' + (p.end_contract||'') + '"'
-      + ' data-start-time="' + (p.start_time||'00:00') + '"'
-      + ' data-end-time="' + (p.end_time||'00:00') + '"'
-      + ' data-value="' + (p.contract_value||0) + '"'
-      + ' data-status="' + status + '"'
-      + '><i class="fas fa-eye"></i></button>'
-      + '<a href="/playlist/' + (p.id||'') + '/invoice" target="_blank" class="btn btn-xs btn-success" title="Invoice"><i class="fas fa-file-invoice-dollar"></i></a>'
-      + '</td>'
-      + '</tr>';
+      + '<button class="btn btn-xs btn-info mr-1 btn-preview-unpaid" data-id="' + (p.id||'') + '" data-name="' + (p.playlist_name||'').replace(/"/g,'&quot;') + '" data-start="' + (p.start_contract||'') + '" data-end="' + (p.end_contract||'') + '" data-start-time="' + (p.start_time||'00:00') + '" data-end-time="' + (p.end_time||'00:00') + '" data-value="' + (p.contract_value||0) + '" data-status="' + status + '"><i class="fas fa-eye"></i></button>'
+      + '<a href="/playlist/' + (p.id||'') + '/invoice" target="_blank" class="btn btn-xs btn-success"><i class="fas fa-file-invoice-dollar"></i></a>'
+      + '</td></tr>';
   });
   $('#unpaidPlaylistBody').html(html);
 }
 
-
-// ================================================================
-// STEP 2 — Jadwal table
-// ================================================================
 function renderJadwalTable(bookings) {
   if (!bookings.length) { $('#jadwalTerisiBody').html('<tr><td colspan="5" class="text-center text-muted py-2">Belum ada jadwal terisi.</td></tr>'); return; }
   var html = '';
@@ -767,9 +696,6 @@ function renderJadwalTable(bookings) {
   $('#jadwalTerisiBody').html(html);
 }
 
-// ================================================================
-// STEP 2 — Calendar with range selection
-// ================================================================
 function renderCalendar() {
   var now = new Date();
   if (calMonth === undefined || calMonth === null) { calMonth = now.getMonth(); calYear = now.getFullYear(); }
@@ -872,9 +798,6 @@ function checkBookingOnDate(dateStr) {
   } else { $('#bookingInfoPanel').hide(); }
 }
 
-// ================================================================
-// DRUM TIME PICKER
-// ================================================================
 function initDrumCol(colId, min, max) {
   var col = document.getElementById(colId); if (!col) return;
   col.innerHTML = '';
@@ -918,10 +841,6 @@ function initAllDrums() {
   initDrumCol('drumEndH',0,23);   initDrumCol('drumEndM',0,59);
 }
 
-
-// ================================================================
-// STEP 3 — Upload konten
-// ================================================================
 function removeRow(btn) {
   btn.closest('.content-row').remove();
   updateContractValue();
@@ -960,39 +879,20 @@ $(document).on('click', '.btn-preview-file-picker', function(){
   $('#filePreviewModal').modal('show');
 });
 
-// Snap satuan harga saat ketik
-$(document).on('input', '.satuan-snap', function(){
-  var val = parseInt($(this).val()) || 15;
-  var snapped = snapSatuan(val);
-  var badge = $(this).closest('.satuan-snap-wrap').find('.satuan-snap-badge');
-  // harga = ceil(snapped / 15) * 50000
-  var hp = Math.ceil(snapped / 15) * 50000;
-  badge.text(snapped + ' dtk = ' + formatRupiah(hp));
-  updateContractValue();
-});
-
 // Trigger updateInvoiceRow saat durasi berubah
 $(document).on('input', 'input[name="durasi_konten_menit[]"], input[name="durasi_konten_detik[]"]', function(){
   var row = $(this).closest('.content-row');
   if (row.length) updateInvoiceRow(row[0].id.replace('contentRow_',''));
+  updateContractValue();
 });
 
-// ================================================================
-// DOCUMENT READY
-// ================================================================
 $(document).ready(function() {
-
   loadLokasi();
 
-  // Tambah baris konten
   $('#btnTambahKonten').click(function() {
     var idx = rowCount;
-    var satuanDefault = 15;
-    var hargaDefault = Math.ceil(satuanDefault / 15) * 50000; // 15 dtk = Rp 50.000
-
     var row = '<div class="content-row" id="contentRow_' + idx + '">'
       + '<button type="button" class="btn btn-xs btn-danger btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button>'
-      // File picker
       + '<div class="row mb-3">'
       + '<div class="col-md-12">'
       + '<label class="small d-block mb-1">File <span class="text-danger">*</span></label>'
@@ -1003,20 +903,9 @@ $(document).ready(function() {
       + '<div id="filePreview_' + idx + '" style="display:none;margin-top:4px;">'
       + '<small class="text-success"><i class="fas fa-check-circle"></i> <span id="fileName_' + idx + '"></span> <span id="fileType_' + idx + '" class="ml-1"></span></small>'
       + '</div>'
-      + '<div class="mt-2 text-right">'
-      + '<button type="button" class="btn btn-xs btn-outline-info btn-preview-file-picker" data-idx="' + idx + '"><i class="fas fa-eye mr-1"></i>Preview</button>'
-      + '</div>'
+      + '<div class="mt-2 text-right"><button type="button" class="btn btn-xs btn-outline-info btn-preview-file-picker" data-idx="' + idx + '"><i class="fas fa-eye mr-1"></i>Preview</button></div>'
       + '</div></div>'
-      // Satuan Harga + Total Durasi Video Anda
       + '<div class="row mb-2">'
-      + '<div class="col-md-4">'
-      + '<label class="small d-block mb-1">Satuan Harga (detik) <span class="text-danger">*</span></label>'
-      + '<div class="satuan-snap-wrap">'
-      + '<input type="number" min="1" class="form-control form-control-sm satuan-snap" name="price_unit[]" value="' + satuanDefault + '">'
-      + '<span class="satuan-snap-badge">' + satuanDefault + ' dtk = ' + formatRupiah(hargaDefault) + '</span>'
-      + '</div>'
-      + '<small class="text-muted">Dibulatkan ke atas kelipatan 15 dtk</small>'
-      + '</div>'
       + '<div class="col-md-4">'
       + '<label class="small d-block mb-1">Total Durasi Video Anda <span class="text-danger">*</span></label>'
       + '<div class="d-flex align-items-center">'
@@ -1026,7 +915,6 @@ $(document).ready(function() {
       + '<span class="ml-2">dtk</span>'
       + '</div>'
       + '</div></div>'
-      // Info boxes: Durasi Tayang, Jumlah Putar, Estimasi Harga
       + '<div class="row">'
       + '<div class="col-md-4"><div class="info-konten-box"><div class="info-label">Total Durasi Tayang sesuai kontrak</div><div class="info-val" id="durasi_tayang_' + idx + '">-</div></div></div>'
       + '<div class="col-md-4"><div class="info-konten-box"><div class="info-label">Jumlah Putar (pengulangan video anda)</div><div class="info-val" id="jumlah_putar_' + idx + '">-</div></div></div>'
@@ -1040,7 +928,6 @@ $(document).ready(function() {
     rowCount++;
   });
 
-  // Simpan Playlist
   $('#btnSimpan').click(function() {
     var btn = $(this);
     var pName = $('#playlist_name').val().trim();
@@ -1076,7 +963,6 @@ $(document).ready(function() {
     fd.append('contract_value', $('#contract_value').val() || 0);
     fd.append('location', $('#location').val() || '');
     fd.append('cust_id', $('#cust_id').val() || '1');
-    // start/end time dari step 2
     fd.append('start_time', $('#s2_start_time').val() || '00:00');
     fd.append('end_time', $('#s2_end_time').val() || '00:00');
 
@@ -1087,9 +973,7 @@ $(document).ready(function() {
       var durMnt = parseInt(row.find('input[name="durasi_konten_menit[]"]').val()) || 0;
       var durDtk = parseInt(row.find('input[name="durasi_konten_detik[]"]').val()) || 0;
       fd.append('content_duration_seconds[' + i + ']', durMnt * 60 + durDtk);
-      var satuanEl = row.find('input.satuan-snap')[0];
-      var satuanVal = satuanEl ? parseInt(satuanEl.value) : 15;
-      fd.append('price_unit[' + i + ']', snapSatuan(satuanVal));
+      fd.append('price_unit[' + i + ']', 15);
     });
 
     btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Menyimpan...');
@@ -1115,18 +999,8 @@ $(document).ready(function() {
       }
     });
   });
-
 });
-</script>
-</body>
-</html>
 
-<script>
-// ================================================================
-// PREVIEW PLAYLIST (dari tabel unpaid step 1)
-// ================================================================
-
-// Event delegation — handle klik tombol preview di tabel unpaid
 $(document).on('click', '.btn-preview-unpaid', function() {
   var btn = this;
   var id        = btn.dataset.id;
@@ -1137,11 +1011,9 @@ $(document).on('click', '.btn-preview-unpaid', function() {
   var endTime   = btn.dataset.endTime   || '00:00';
   var value     = btn.dataset.value     || '0';
   
-  // PERBAIKAN: Check raw status (termasuk angka 1)
   var rawStatus = String(btn.dataset.status || 'unpaid').toLowerCase();
   var status = (['paid','approved','1'].indexOf(rawStatus) !== -1) ? 'paid' : 'unpaid';
 
-  // Hitung sisa hari
   var endDate  = new Date(end.split(' ')[0]);
   var now      = new Date();
   var diffDays = Math.floor((endDate - now) / 86400000);
@@ -1153,35 +1025,21 @@ $(document).on('click', '.btn-preview-unpaid', function() {
   document.getElementById('prev_end').textContent   = formatTanggalID(end);
   document.getElementById('prev_jam').textContent   = startTime + ' \u2013 ' + endTime;
   document.getElementById('prev_value').textContent = 'Rp ' + Math.round(parseFloat(value)).toLocaleString('id-ID');
-  document.getElementById('prev_remaining_badge').innerHTML =
-    '<span class="sisa-mini ' + sisaClass + '" style="width:auto;border-radius:20px;padding:4px 14px;display:inline-flex;">' + sisaLabel + '</span>';
-  document.getElementById('prev_status').innerHTML =
-    '<span class="' + (status === 'paid' ? 'status-paid' : 'status-unpaid') + '">' + status.toUpperCase() + '</span>';
+  document.getElementById('prev_remaining_badge').innerHTML = '<span class="sisa-mini ' + sisaClass + '" style="width:auto;border-radius:20px;padding:4px 14px;display:inline-flex;">' + sisaLabel + '</span>';
+  document.getElementById('prev_status').innerHTML = '<span class="' + (status === 'paid' ? 'status-paid' : 'status-unpaid') + '">' + status.toUpperCase() + '</span>';
 
-  document.getElementById('prev_konten_container').innerHTML =
-    '<p class="text-muted text-center mb-0"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat konten dari server...</p>';
+  document.getElementById('prev_konten_container').innerHTML = '<p class="text-muted text-center mb-0"><i class="fas fa-spinner fa-spin mr-1"></i>Memuat konten dari server...</p>';
   document.getElementById('prev_konten_count').textContent = '';
-
   $('#previewModal').modal('show');
 
-  // Fetch konten dari API
-  fetch('/api/playlist/' + id, {
-    headers: {
-      'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-      'Accept': 'application/json'
-    }
-  })
-  .then(function(res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
+  fetch('/api/playlist/' + id, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' } })
+  .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
   .then(function(data) {
     if (data.status !== 'success') throw new Error(data.message || 'Gagal');
     tampilkanKontenPermintaan(data.data.resolved_items || []);
   })
   .catch(function(err) {
-    document.getElementById('prev_konten_container').innerHTML =
-      '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Gagal memuat konten: ' + err.message + '</div>';
+    document.getElementById('prev_konten_container').innerHTML = '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Gagal memuat konten: ' + err.message + '</div>';
   });
 });
 
@@ -1202,7 +1060,6 @@ function tampilkanKontenPermintaan(kontenList) {
     var fileName = (k.content  ? k.content.file : '') || '';
     var isVideo  = fileType === 'video' || /\.(mp4|mov|avi|mkv|webm)$/i.test(fileName);
     var isImage  = fileType === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
-
     var startDate = k.start_date || '-';
     var endDate   = k.end_date   || '-';
     var startTime = k.start_time || '-';
@@ -1212,45 +1069,16 @@ function tampilkanKontenPermintaan(kontenList) {
 
     var mediaHtml = '';
     if (fileUrl) {
-      if (isVideo) {
-        mediaHtml = '<video controls class="w-100" style="max-height:200px;border-radius:6px;background:#000;">'
-          + '<source src="' + fileUrl + '">'
-          + '<p class="text-muted p-2">Browser tidak support video.</p></video>';
-      } else if (isImage) {
-        mediaHtml = '<img src="' + fileUrl + '" class="img-fluid rounded" style="max-height:200px;object-fit:contain;">';
-      } else {
-        mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-file fa-2x mb-2 d-block"></i>' + fileName.split('/').pop() + '</div>';
-      }
-    } else {
-      mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-image fa-2x mb-2 d-block"></i>Tidak ada file</div>';
-    }
+      if (isVideo) mediaHtml = '<video controls class="w-100" style="max-height:200px;border-radius:6px;background:#000;"><source src="' + fileUrl + '"><p class="text-muted p-2">Browser tidak support video.</p></video>';
+      else if (isImage) mediaHtml = '<img src="' + fileUrl + '" class="img-fluid rounded" style="max-height:200px;object-fit:contain;">';
+      else mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-file fa-2x mb-2 d-block"></i>' + fileName.split('/').pop() + '</div>';
+    } else mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-image fa-2x mb-2 d-block"></i>Tidak ada file</div>';
 
     var shortName = fileName.split('/').pop() || 'File';
-    var typeBadge = isVideo
-      ? '<span style="background:#6f42c1;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#9654; video</span>'
-      : isImage
-        ? '<span style="background:#17a2b8;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#128247; gambar</span>'
-        : '';
+    var typeBadge = isVideo ? '<span style="background:#6f42c1;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#9654; video</span>' : isImage ? '<span style="background:#17a2b8;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#128247; gambar</span>' : '';
 
-    html += '<div class="col-md-6 mb-3">'
-      + '<div class="card card-secondary card-outline h-100">'
-      + '<div class="card-header py-2 d-flex justify-content-between align-items-center">'
-      + '<small class="text-truncate" style="max-width:75%;" title="' + shortName + '">' + shortName + '</small>'
-      + typeBadge
-      + '</div>'
-      + '<div class="card-body p-2" style="background:rgba(0,0,0,.3);">' + mediaHtml + '</div>'
-      + '<div class="card-footer p-2">'
-      + '<table class="table table-borderless table-sm mb-0" style="font-size:12px;">'
-      + '<tr><td class="py-0 text-muted" style="width:90px">Start Date</td><td class="py-0">' + startDate + '</td>'
-      + '<td class="py-0 text-muted" style="width:70px">End Date</td><td class="py-0">' + endDate + '</td></tr>'
-      + '<tr><td class="py-0 text-muted">Start Time</td><td class="py-0">' + startTime + '</td>'
-      + '<td class="py-0 text-muted">End Time</td><td class="py-0">' + endTime + '</td></tr>'
-      + '<tr><td class="py-0 text-muted">Hari Tayang</td><td class="py-0" colspan="3">' + days + '</td></tr>'
-      + '<tr><td class="py-0 text-muted">Prioritas</td><td class="py-0" colspan="3">' + prioritas + '</td></tr>'
-      + '</table></div>'
-      + '</div></div>';
+    html += '<div class="col-md-6 mb-3"><div class="card card-secondary card-outline h-100"><div class="card-header py-2 d-flex justify-content-between align-items-center"><small class="text-truncate" style="max-width:75%;" title="' + shortName + '">' + shortName + '</small>' + typeBadge + '</div><div class="card-body p-2" style="background:rgba(0,0,0,.3);">' + mediaHtml + '</div><div class="card-footer p-2"><table class="table table-borderless table-sm mb-0" style="font-size:12px;"><tr><td class="py-0 text-muted" style="width:90px">Start Date</td><td class="py-0">' + startDate + '</td><td class="py-0 text-muted" style="width:70px">End Date</td><td class="py-0">' + endDate + '</td></tr><tr><td class="py-0 text-muted">Start Time</td><td class="py-0">' + startTime + '</td><td class="py-0 text-muted">End Time</td><td class="py-0">' + endTime + '</td></tr><tr><td class="py-0 text-muted">Hari Tayang</td><td class="py-0" colspan="3">' + days + '</td></tr><tr><td class="py-0 text-muted">Prioritas</td><td class="py-0" colspan="3">' + prioritas + '</td></tr></table></div></div></div>';
   });
-
   html += '</div>';
   container.innerHTML = html;
 }
