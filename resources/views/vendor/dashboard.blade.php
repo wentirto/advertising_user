@@ -6,29 +6,7 @@
 
 {{-- 3. JEPIT CSS lu pake @push('styles') biar disuntik ke <head> --}}
 @push('styles')
-<style>
-    /* ── Sisa badge ── */
-    .sisa-badge{display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;font-size:11px;font-weight:700;line-height:1.2;text-align:center;flex-direction:column}
-    .sisa-badge.aman{background:#28a745;color:#fff}
-    .sisa-badge.warning{background:#ffc107;color:#333}
-    .sisa-badge.danger{background:#dc3545;color:#fff}
-    .sisa-badge .hari-num{font-size:16px;font-weight:800;line-height:1}
 
-    .status-paid{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .status-unpaid{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-
-    .small-box{border-radius:10px;overflow:hidden;box-shadow:6 4px 10px rgba(0,0,0,.25);position:relative}
-    .small-box .inner{padding:26px 17px}
-    .small-box h3{font-size:37px;font-weight:900;margin:0;line-height:1}
-    .small-box h5.rp-kecil{font-size:28px!important;}
-    .small-box p{font-size:15px;margin-top:6px;margin-bottom:0}
-    .small-box .icon{position:absolute;top:6px;right:15px;font-size:70px;opacity:.9;pointer-events:none}
-    .small-box-footer{display:block;padding:8px;text-align:center;color:#fff;background:rgba(0,0,0,.15);text-decoration:none;font-size:13px}
-    .small-box-footer:hover{color:#fff;background:rgba(0,0,0,.25)}
-
-    .view-more-link{color:#17a2b8;font-size:13px;font-weight:600;text-decoration:none}
-    .view-more-link:hover{text-decoration:underline;color:#117a8b}
-</style>
 @endpush
 
 {{-- 4. JEPIT HTML KONTEN lu pake @section('content') biar disuntik ke <body> --}}
@@ -38,7 +16,7 @@
       <div class="row mb-2">
         <div class="col-sm-6"><h1 class="m-0"><i class="fas fa-chart-line mr-2"></i>Dashboard</h1></div>
         <div class="col-sm-6 text-right">
-          <ol class="breadcrumb float-sm-right"><li class="breadcrumb-item active">Dashboard</li></ol>
+          <ol class="breadcrumb float-sm-right"><li class="breadcrumb-item active" style="color: #00f3ff;">Dashboard</li></ol>
         </div>
       </div>
     </div>
@@ -76,38 +54,33 @@
         $deviceMap = collect($devices ?? [])->keyBy('id');
         $vendorMap = collect($vendors ?? [])->keyBy('id');
       @endphp
-
-      {{-- SUMMARY CARDS --}}
+{{-- SUMMARY CARDS --}}
       <div class="row mb-3">
         <div class="col-lg-3 col-6">
-          <div class="small-box" style="background:linear-gradient(135deg,#1a3a6b,#2d5fa0);color:#fff;">
+          <div class="small-box bg-primary">
             <div class="inner">
               <h5 class="rp-kecil">Rp {{ number_format($totalPengeluaran,0,',','.') }}</h5>
               <p>Total Pengeluaran</p>
             </div>
             <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
-            <a href="{{ route('vendor.playlist') }}" class="small-box-footer">Dari playlist paid <i class="fas fa-arrow-circle-right"></i></a>
           </div>
         </div>
         <div class="col-lg-3 col-6">
           <div class="small-box bg-success">
             <div class="inner"><h3>{{ $paid }}</h3><p>Paid</p></div>
             <div class="icon"><i class="fas fa-check-circle"></i></div>
-            <a href="{{ route('vendor.playlist') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
           </div>
         </div>
         <div class="col-lg-3 col-6">
           <div class="small-box bg-danger">
             <div class="inner"><h3>{{ $unpaid }}</h3><p>Unpaid</p></div>
             <div class="icon"><i class="fas fa-times-circle"></i></div>
-            <a href="{{ route('vendor.playlist') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
           </div>
         </div>
         <div class="col-lg-3 col-6">
-          <div class="small-box" style="background:linear-gradient(135deg,#555,#777);color:#fff;">
+          <div class="small-box bg-secondary">
             <div class="inner"><h3>{{ count($playlists) }}</h3><p>Total Playlist</p></div>
             <div class="icon"><i class="fas fa-film"></i></div>
-            <a href="{{ route('vendor.playlist') }}" class="small-box-footer">Lihat Detail <i class="fas fa-arrow-circle-right"></i></a>
           </div>
         </div>
       </div>
@@ -115,7 +88,7 @@
       {{-- PREVIEW TABLE --}}
       <div class="row">
         <div class="col-12">
-          <div class="card card-dark">
+          <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
               <h3 class="card-title"><i class="fas fa-film mr-2"></i>Daftar Playlist</h3>
               <a href="{{ route('vendor.playlist') }}" class="view-more-link"><i class="fas fa-external-link-alt mr-1"></i>View More</a>
@@ -128,7 +101,7 @@
                     <th>Nama Playlist</th>
                     <th>Vendor</th>
                     <th>Device</th>
-                    <th style="width:90px">Sisa</th>
+                    <th style="width:90px; text-align:center;">Sisa</th>
                     <th>Nilai Kontrak</th>
                   </tr>
                 </thead>
@@ -146,7 +119,7 @@
                       $dName = $deviceMap[$p['device_id'] ?? '']['device_name'] ?? '-';
                     @endphp
                     <tr>
-                      <td>{{ $i + 1 }}</td>
+                      <td class="text-center">{{ $i + 1 }}</td>
                       <td><strong>{{ $p['playlist_name'] }}</strong></td>
                       <td>{{ $vName }}</td>
                       <td>{{ $dName }}</td>
@@ -174,7 +147,6 @@
 {{-- 5. JEPIT SCRIPT lu pake @push('scripts') biar disuntik ke bagian bawah <body> --}}
 @push('scripts')
 <script>
-  // Kalo ada custom Javascript buat dashboard taruh disini
-  console.log('Dashboard diload!');
+  console.log('Dashboard Cyberpunk diload!');
 </script>
 @endpush

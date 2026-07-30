@@ -3,63 +3,6 @@
 @section('title', 'Daftar Permintaan')
 
 @push('styles')
-<style>
-    .badge-video{background:#6f42c1;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
-    .badge-image{background:#17a2b8;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
-    .remaining-field{background:rgba(255,255,255,.06)!important;cursor:not-allowed;font-weight:600;color:#17a2b8!important}
-    .content-row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:14px 16px;margin-bottom:12px;position:relative}
-    .content-row .btn-remove-row{position:absolute;top:8px;right:8px}
-    /* Wizard */
-    #wizardSteps{position:sticky;top:57px;z-index:100;background:#1e2230;padding:10px 0;margin-bottom:0}
-    #wizardSteps .nav-link{background:rgba(255,255,255,.05);color:#aaa;border-radius:6px;margin:0 3px;font-size:13px;font-weight:600;cursor:default}
-    #wizardSteps .nav-link.active{background:#007bff;color:#fff}
-    #wizardSteps .nav-link.done{background:#28a745;color:#fff}
-    #wizardSteps .nav-link.disabled{opacity:.45}
-    /* Lokasi cards */
-    .lokasi-card{background:rgba(255,255,255,.04);border:2px solid rgba(255,255,255,.1);transition:border-color .15s,transform .15s;cursor:pointer;border-radius:8px}
-    .lokasi-card:hover{border-color:#17a2b8;transform:translateY(-2px)}
-    .lokasi-card.selected{border-color:#28a745;box-shadow:0 0 0 2px rgba(40,167,69,.4)}
-    .lokasi-thumb{height:120px;border-radius:6px 6px 0 0;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;overflow:hidden}
-    /* Drum Picker */
-    .drum-picker-wrap{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:4px 8px}
-    .drum-col-wrap{position:relative;width:48px;height:120px}
-    .drum-col{width:48px;height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
-    .drum-col::-webkit-scrollbar{display:none}
-    .drum-highlight{position:absolute;top:40px;left:0;right:0;height:40px;background:rgba(0,123,255,.18);border-radius:4px;pointer-events:none;border-top:1px solid rgba(0,123,255,.6);border-bottom:1px solid rgba(0,123,255,.6);z-index:2}
-    .drum-sep{font-size:22px;font-weight:800;color:#fff;margin:0 2px;line-height:128px}
-    .drum-item{height:40px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:16px;font-weight:700;color:rgba(255,255,255,.28);user-select:none;transition:color .08s,font-size .08s}
-    /* Calendar */
-    .cal-grid-table{width:100%;table-layout:fixed;border-collapse:collapse}
-    .cal-grid-table th{text-align:center;font-size:12px;font-weight:600;padding:6px 2px;color:#9aa0ae;border-bottom:1px solid rgba(255,255,255,.1)}
-    .cal-grid-table td{vertical-align:top;height:72px;padding:4px;border:1px solid rgba(255,255,255,.06);font-size:13px;cursor:pointer;transition:background .1s;position:relative}
-    .cal-grid-table td.other-month{opacity:.3;cursor:default;pointer-events:none}
-    .cal-grid-table td.past-date{opacity:.35;cursor:default;pointer-events:none}
-    .cal-grid-table td.today-cell .day-num{color:#17a2b8;font-weight:800}
-    .cal-grid-table td:not(.other-month):not(.past-date):hover{background:rgba(255,255,255,.07)}
-    .cal-grid-table td.in-range{background:rgba(0,123,255,.18)!important}
-    .cal-grid-table td.range-start{background:rgba(0,123,255,.65)!important;border-radius:6px 0 0 6px}
-    .cal-grid-table td.range-end{background:rgba(0,123,255,.65)!important;border-radius:0 6px 6px 0}
-    .cal-grid-table td.range-start.range-end{border-radius:6px}
-    .booking-bar{height:16px;border-radius:3px;margin-top:2px;font-size:9px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding:2px 4px;line-height:12px;color:#fff}
-    .day-num{font-size:12px;font-weight:600;line-height:1.2}
-    .step-section{padding-top:16px}
-    /* Status badge step 1 */
-    .status-paid{background:#28a745;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;display:inline-block}
-    .status-unpaid{background:#dc3545;color:#fff;font-size:10px;padding:2px 8px;border-radius:8px;font-weight:700;display:inline-block}
-    .sisa-mini{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;font-size:10px;font-weight:800;line-height:1.1}
-    .sisa-mini.aman{background:#28a745;color:#fff}
-    .sisa-mini.warning{background:#ffc107;color:#333}
-    .sisa-mini.danger{background:#dc3545;color:#fff}
-    /* Satuan harga snap input */
-    .satuan-snap-wrap{display:flex;align-items:center;gap:6px}
-    .satuan-snap-wrap input[type=number]{width:80px}
-    .satuan-snap-badge{font-size:12px;font-weight:700;padding:3px 8px;border-radius:6px;background:rgba(0,123,255,.2);color:#64b5f6;white-space:nowrap}
-    /* Info box konten */
-    .info-konten-box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:10px 14px}
-    .info-konten-box .info-label{font-size:11px;color:#9aa0ae;margin-bottom:2px}
-    .info-konten-box .info-val{font-size:15px;font-weight:700;color:#fff}
-    .contract-display{font-size:18px;font-weight:800;color:#28a745;letter-spacing:.5px}
-</style>
 @endpush
 
 @section('content')

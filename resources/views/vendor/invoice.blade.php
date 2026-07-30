@@ -4,6 +4,84 @@
 
 @push('styles')
 <style>
+  /* ==========================================================
+   EFEK NEON GLOWING UNTUK CARD ADMINLTE
+========================================================== */
+
+/* 1. Efek Glow Biru (Card Total Pengeluaran) */
+.bg-primary, .bg-info {
+    box-shadow: 0 0 15px rgba(0, 123, 255, 0.6) !important;
+    border: 1px solid rgba(0, 123, 255, 0.4); 
+    transition: all 0.3s ease-in-out;
+}
+.bg-primary:hover, .bg-info:hover {
+    box-shadow: 0 0 25px rgba(0, 123, 255, 0.9), inset 0 0 10px rgba(0, 123, 255, 0.3) !important;
+    transform: translateY(-2px); /* Bikin card naik dikit pas disorot */
+}
+
+/* 2. Efek Glow Hijau (Card Paid) */
+.bg-success {
+    box-shadow: 0 0 15px rgba(40, 167, 69, 0.6) !important;
+    border: 1px solid rgba(40, 167, 69, 0.4);
+    transition: all 0.3s ease-in-out;
+}
+.bg-success:hover {
+    box-shadow: 0 0 25px rgba(40, 167, 69, 0.9), inset 0 0 10px rgba(40, 167, 69, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+/* 3. Efek Glow Merah (Card Unpaid) */
+.bg-danger {
+    box-shadow: 0 0 15px rgba(220, 53, 69, 0.6) !important;
+    border: 1px solid rgba(220, 53, 69, 0.4);
+    transition: all 0.3s ease-in-out;
+}
+.bg-danger:hover {
+    box-shadow: 0 0 25px rgba(220, 53, 69, 0.9), inset 0 0 10px rgba(220, 53, 69, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+/* 4. Efek Glow Abu-abu/Putih Redup (Card Total Playlist) */
+.bg-secondary, .bg-gray {
+    box-shadow: 0 0 15px rgba(108, 117, 125, 0.5) !important;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+    transition: all 0.3s ease-in-out;
+}
+.bg-secondary:hover, .bg-gray:hover {
+    box-shadow: 0 0 25px rgba(108, 117, 125, 0.8), inset 0 0 10px rgba(108, 117, 125, 0.2) !important;
+    transform: translateY(-2px);
+}
+  /* 1. Bikin Background Jadi Biru Gelap Nyaris Hitam (Biar Neon-nya Nyala) */
+body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar {
+    background-color: #0b1120 !important; 
+    color: #e2e8f0 !important;
+}
+
+/* 2. Ubah Warna Navbar dan Sidebar Biar Menyatu */
+.main-header {
+    border-bottom: 1px solid #00f3ff;
+    background-color: rgba(11, 17, 32, 0.9) !important;
+}
+
+/* 3. Bikin Card/Kotak-kotak Punya Efek Glowing Neon Biru */
+.card {
+    background-color: #111827 !important;
+    border: 1px solid #00f3ff;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1);
+    color: #e2e8f0;
+}
+
+/* 4. Efek Bercahaya Pas Tombol atau Card Di-hover (Disorot Mouse) */
+.card:hover, .btn-primary {
+    box-shadow: 0 0 20px rgba(0, 243, 255, 0.6), inset 0 0 10px rgba(0, 243, 255, 0.3);
+    transition: all 0.3s ease-in-out;
+}
+
+/* 5. Ganti Warna Text Penting Jadi Biru Terang (Cyan) */
+h1, h2, h3, h4, .card-title, a {
+    color: #00f3ff !important;
+    text-shadow: 0 0 5px rgba(0, 243, 255, 0.5);
+}
   /* Pindahin font dan warna ke bungkusnya aja biar gak ngerusak tema utama Dashboard */
   .page-wrap { max-width: 780px; margin: 32px auto; padding: 0 16px 60px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222; }
 

@@ -3,33 +3,6 @@
 @section('title', 'Daftar Playlist')
 
 @push('styles')
-<style>
-    .sisa-badge{display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;font-size:11px;font-weight:700;line-height:1.2;text-align:center;flex-direction:column}
-    .sisa-badge.aman{background:#28a745;color:#fff}
-    .sisa-badge.warning{background:#ffc107;color:#333}
-    .sisa-badge.danger{background:#dc3545;color:#fff}
-    .sisa-badge .hari-num{font-size:16px;font-weight:800;line-height:1}
-    .status-paid{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .status-unpaid{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .status-pending{background:#ffc107;color:#333;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .status-approved{background:#28a745;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .status-rejected{background:#dc3545;color:#fff;font-size:11px;padding:3px 10px;border-radius:10px;font-weight:700;display:inline-block}
-    .btn-action{padding:4px 9px;font-size:12px}
-    .badge-video{background:#6f42c1;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
-    .badge-image{background:#17a2b8;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
-    .konten-item{border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:10px;margin-bottom:10px;background:rgba(255,255,255,.03)}
-    .konten-thumb{width:100%;max-height:140px;object-fit:cover;border-radius:6px;cursor:pointer;transition:opacity .2s}
-    .konten-thumb:hover{opacity:.85}
-    .konten-thumb-video{width:100%;max-height:140px;border-radius:6px;cursor:pointer}
-    .dataTables_wrapper .dataTables_length select,
-    .dataTables_wrapper .dataTables_filter input{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:4px}
-    .dataTables_wrapper .dataTables_info,
-    .dataTables_wrapper .dataTables_paginate .paginate_button{color:#ccc !important}
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover{background:#007bff !important;border-color:#007bff !important;color:#fff !important}
-    .dataTables_wrapper .dataTables_paginate .paginate_button:hover{background:rgba(255,255,255,.1) !important;color:#fff !important}
-    table.dataTable thead th{border-bottom:2px solid rgba(255,255,255,.15) !important}
-</style>
 @endpush
 
 @section('content')
