@@ -53,8 +53,8 @@
 }
   /* 1. Bikin Background Jadi Biru Gelap Nyaris Hitam (Biar Neon-nya Nyala) */
 body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar {
-    background-color: #0b1120 !important; 
-    color: #e2e8f0 !important;
+    background-color: #030710 !important; 
+    color: #a8b8d0 !important;
 }
 
 /* 2. Ubah Warna Navbar dan Sidebar Biar Menyatu */
@@ -65,10 +65,10 @@ body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar {
 
 /* 3. Bikin Card/Kotak-kotak Punya Efek Glowing Neon Biru */
 .card {
-    background-color: #111827 !important;
-    border: 1px solid #00f3ff;
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1);
-    color: #e2e8f0;
+    background-color: #070f1e !important;
+    border: 1px solid rgba(0, 180, 200, 0.12);
+    box-shadow: 0 0 6px rgba(0, 180, 200, 0.06), inset 0 0 3px rgba(0, 180, 200, 0.03);
+    color: #a8b8d0;
 }
 
 /* 4. Efek Bercahaya Pas Tombol atau Card Di-hover (Disorot Mouse) */
@@ -79,8 +79,8 @@ body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar {
 
 /* 5. Ganti Warna Text Penting Jadi Biru Terang (Cyan) */
 h1, h2, h3, h4, .card-title, a {
-    color: #00f3ff !important;
-    text-shadow: 0 0 5px rgba(0, 243, 255, 0.5);
+    color: #5fb8cc !important;
+    text-shadow: 0 0 3px rgba(0, 180, 200, 0.2);
 }
   /* Pindahin font dan warna ke bungkusnya aja biar gak ngerusak tema utama Dashboard */
   .page-wrap { max-width: 780px; margin: 32px auto; padding: 0 16px 60px; font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; color: #222; }
@@ -163,20 +163,20 @@ h1, h2, h3, h4, .card-title, a {
 
 @php
   use Carbon\Carbon;
-  $vendorName    = $vendor['nama']          ?? $vendor['name']         ?? 'GIK Vision';
-  $vendorCompany = $vendor['company']       ?? '';
-  $vendorLoc     = $vendor['location']      ?? '';
-  $vendorEmail   = $vendor['email']         ?? '';
-  $custName      = trim(($customer['first_name'] ?? '') . ' ' . ($customer['last_name'] ?? ''));
-  if (!$custName) $custName = $customer['name'] ?? '-';
-  $custEmail     = $customer['email']       ?? '-';
-  $custPhone     = $customer['phone_number'] ?? '-';
-  $custCompany   = $customer['company_name'] ?? '';
-  $custCity      = $customer['city']         ?? '';
-  $deviceName    = $device['device_name']    ?? '-';
-  $deviceLoc     = trim(($device['kota'] ?? '') . ', ' . ($device['provinsi'] ?? ''), ', ');
-  $startContract = $playlist['start_contract'] ?? null;
-  $endContract   = $playlist['end_contract']   ?? null;
+  $vendorName    = optional($vendor)->nama          ?? optional($vendor)->name         ?? 'GIK Vision';
+  $vendorCompany = optional($vendor)->company       ?? '';
+  $vendorLoc     = optional($vendor)->location      ?? '';
+  $vendorEmail   = optional($vendor)->email         ?? '';
+  $custName      = trim((optional($customer)->first_name ?? '') . ' ' . (optional($customer)->last_name ?? ''));
+  if (!$custName) $custName = optional($customer)->name ?? '-';
+  $custEmail     = optional($customer)->email        ?? '-';
+  $custPhone     = optional($customer)->phone_number ?? '-';
+  $custCompany   = optional($customer)->company_name ?? '';
+  $custCity      = optional($customer)->city         ?? '';
+  $deviceName    = optional($device)->device_name    ?? '-';
+  $deviceLoc     = trim((optional($device)->kota ?? '') . ', ' . (optional($device)->provinsi ?? ''), ', ');
+  $startContract = $playlist->start_contract ?? null;
+  $endContract   = $playlist->end_contract   ?? null;
   $periodeTayang = $startContract && $endContract
     ? Carbon::parse($startContract)->format('d/m/Y') . ' – ' . Carbon::parse($endContract)->format('d/m/Y')
     : '-';
@@ -250,20 +250,20 @@ h1, h2, h3, h4, .card-title, a {
         <tbody>
           @forelse($items as $item)
           @php
-            $contentTitle = $item['content']['title'] ?? '-';
-            $contentFile  = basename($item['content']['file'] ?? '');
-            $itemStart    = $item['start_date'] ?? ($startContract ? substr($startContract,0,10) : '-');
-            $itemEnd      = $item['end_date']   ?? ($endContract   ? substr($endContract,0,10)   : '-');
+            $contentTitle = optional($item->content)->title ?? '-';
+            $contentFile  = basename(optional($item->content)->file ?? '');
+            $itemStart    = $item->start_date ?? ($startContract ? Carbon::parse($startContract)->toDateString() : '-');
+            $itemEnd      = $item->end_date   ?? ($endContract   ? Carbon::parse($endContract)->toDateString()   : '-');
             $itemPeriode  = ($itemStart && $itemEnd && $itemStart !== '-')
               ? Carbon::parse($itemStart)->format('d/m/Y') . ' – ' . Carbon::parse($itemEnd)->format('d/m/Y')
               : $periodeTayang;
-            $jamMulai  = $item['start_time'] ?? '-';
-            $jamSelesai= $item['end_time']   ?? '-';
-            $subTotal  = $item['pricing']->sub_total ?? $grand_total;
+            $jamMulai   = $item->start_time ?? '-';
+            $jamSelesai = $item->end_time   ?? '-';
+            $subTotal   = $item->pricing->sub_total ?? $grand_total;
           @endphp
           <tr>
             <td>
-              <div class="content-title">{{ $playlist['playlist_name'] ?? '-' }}</div>
+              <div class="content-title">{{ $playlist->playlist_name ?? '-' }}</div>
               <div class="content-file">{{ $contentFile ?: $contentTitle }}</div>
             </td>
             <td>{{ $deviceName }}</td>

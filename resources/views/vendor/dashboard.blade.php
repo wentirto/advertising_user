@@ -26,33 +26,26 @@
     <div class="container-fluid">
       @php
         use Carbon\Carbon;
-        use App\Models\Invoice;
-
-        $localInvoices = Invoice::all()->keyBy('playlist_id');
 
         $paid = $unpaid = 0;
         $totalPengeluaran = 0;
 
-        foreach ($playlists as &$p) {
-          $inv = $localInvoices->get($p['id']);
-          
-          $apiStatus = strtolower((string)($p['status'] ?? ''));
+        foreach ($playlists as $p) {
+          $inv        = $p->invoice;
+          $apiStatus  = strtolower((string)($p->status ?? ''));
           $localStatus = $inv ? strtolower($inv->status) : 'unpaid';
-          $isPaid = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']);
-          
-          $p['local_status'] = $isPaid ? 'paid' : 'unpaid';
-          $p['local_amount'] = $inv ? $inv->amount : ($p['contract_value'] ?? 0);
+          $isPaid      = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']);
 
-          if ($p['local_status'] === 'paid') {
+          if ($isPaid) {
               $paid++;
-              $totalPengeluaran += (float)$p['local_amount'];
+              $totalPengeluaran += (float)($inv ? $inv->amount : ($p->contract_value ?? 0));
           } else {
               $unpaid++;
           }
         }
-        
-        $deviceMap = collect($devices ?? [])->keyBy('id');
-        $vendorMap = collect($vendors ?? [])->keyBy('id');
+
+        $deviceMap = $devices->keyBy('id');
+        $vendorMap = $vendors->keyBy('id');
       @endphp
 {{-- SUMMARY CARDS --}}
       <div class="row mb-3">
@@ -106,21 +99,22 @@
                   </tr>
                 </thead>
                 <tbody>
-                  @forelse(array_slice($playlists, 0, 5) as $i => $p)
+                  @forelse($playlists->take(5) as $i => $p)
                     @php
-                      $end   = Carbon::parse($p['end_contract']);
+                      $end   = Carbon::parse($p->end_contract);
                       $diff  = (int) Carbon::now()->diffInDays($end, false);
                       if ($diff >= 30) { $sisaClass = 'aman'; }
                       elseif ($diff >= 11) { $sisaClass = 'warning'; }
                       else { $sisaClass = 'danger'; }
                       $sisaLabel = $diff > 0 ? $diff.' hari' : abs($diff).' hari (lewat)';
-                      $val   = $p['local_amount'];
-                      $vName = $vendorMap[$p['cust_id'] ?? '']['nama'] ?? $vendorMap[$p['vendor_id'] ?? '']['nama'] ?? ($p['cust_id'] ?? '-');
-                      $dName = $deviceMap[$p['device_id'] ?? '']['device_name'] ?? '-';
+                      $inv  = $p->invoice;
+                      $val  = $inv ? $inv->amount : ($p->contract_value ?? 0);
+                      $vName = optional($p->vendor)->nama ?? optional($p->vendor)->name ?? '-';
+                      $dName = optional($p->device)->device_name ?? '-';
                     @endphp
                     <tr>
                       <td class="text-center">{{ $i + 1 }}</td>
-                      <td><strong>{{ $p['playlist_name'] }}</strong></td>
+                      <td><strong>{{ $p->playlist_name }}</strong></td>
                       <td>{{ $vName }}</td>
                       <td>{{ $dName }}</td>
                       <td class="text-center">

@@ -1,15 +1,23 @@
 <?php
+
 namespace App\Http\Controllers;
+
+use App\Models\Playlist;
+use App\Models\Vendor;
+use App\Models\Device;
 
 class VendorDashboardController extends Controller
 {
     public function dashboard()
     {
-        $data = $this->apiGet();
-        $playlists = $this->enrichPlaylists($data['playlists'] ?? [], $data['contents'] ?? [], $data['playlist_items'] ?? []);
-        return view('vendor.dashboard', [ // Ganti view-nya ke folder vendor
-            'playlists' => $playlists, 'vendors' => $data['vendors'] ?? [],
-            'contents' => $data['contents'] ?? [], 'devices' => $data['devices'] ?? [],
+        $playlists = Playlist::with(['device', 'vendor', 'items.content', 'invoice'])->get();
+        $vendors   = Vendor::all();
+        $devices   = Device::all();
+
+        return view('vendor.dashboard', [
+            'playlists' => $playlists,
+            'vendors'   => $vendors,
+            'devices'   => $devices,
         ]);
     }
 }

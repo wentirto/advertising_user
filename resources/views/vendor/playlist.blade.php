@@ -25,30 +25,23 @@
 
         @php
           use Carbon\Carbon;
-          use App\Models\Invoice;
 
-          $deviceMap = collect($devices ?? [])->keyBy('id');
-          $vendorMap = collect($vendors ?? [])->keyBy('id');
+          $deviceMap = $devices->keyBy('id');
+          $vendorMap = $vendors->keyBy('id');
 
-          $localInvoices = Invoice::all()->keyBy('playlist_id');
-
-          // CUMA LOLOSIN YANG PAID / 1
-          $playlists = array_values(array_filter($playlists, function($p) use ($localInvoices) {
-            $apiStatus = strtolower((string)($p['status'] ?? ''));
-            $inv = $localInvoices->get($p['id']);
+          // Filter hanya yang PAID
+          $playlists = $playlists->filter(function($p) {
+            $apiStatus  = strtolower((string)($p->status ?? ''));
+            $inv        = $p->invoice;
             $localStatus = $inv ? strtolower($inv->status) : 'unpaid';
+            return in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']);
+          })->values();
 
-            return in_array($apiStatus, ['paid', 'approved', '1']) || in_array($localStatus, ['paid', 'approved', '1']); 
-          }));
-
-          $totalPlaylist = count($playlists);
+          $totalPlaylist = $playlists->count();
           $amanCount = $warningCount = $dangerCount = 0;
-          
-          foreach ($playlists as &$p) { 
-            $inv = $localInvoices->get($p['id']);
-            $p['contract_value'] = $inv ? $inv->amount : ($p['contract_value'] ?? 0);
 
-            $d = (int) Carbon::now()->diffInDays(Carbon::parse($p['end_contract']), false);
+          foreach ($playlists as $p) {
+            $d = (int) Carbon::now()->diffInDays(Carbon::parse($p->end_contract), false);
             if ($d >= 30)     $amanCount++;
             elseif ($d >= 11) $warningCount++;
             else              $dangerCount++;
@@ -108,36 +101,36 @@
                   <tbody>
                     @forelse($playlists as $i => $p)
                       @php
-                        $end   = Carbon::parse($p['end_contract']);
+                        $end   = Carbon::parse($p->end_contract);
                         $diff  = (int) Carbon::now()->diffInDays($end, false);
                         if ($diff >= 30)     { $sisaClass = 'aman'; }
                         elseif ($diff >= 11) { $sisaClass = 'warning'; }
                         else                 { $sisaClass = 'danger'; }
                         $sisaLabel  = $diff > 0 ? $diff.' hari' : abs($diff).' hari (lewat)';
-                        $val        = $p['contract_value'] ?? 0;
-                        
-                        $vName = $vendorMap[$p['vendor_id'] ?? '']['nama'] ?? $vendorMap[$p['cust_id'] ?? '']['nama'] ?? '-';
-                        $dName = $deviceMap[$p['device_id'] ?? '']['device_name'] ?? '-';
-                        
-                        $apiStatus = strtolower((string)($p['status'] ?? ''));
-                        $invStatus = isset($localInvoices[$p['id']]) ? strtolower($localInvoices[$p['id']]->status) : 'unpaid';
-                        
-                        $isPaid = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($invStatus, ['paid', 'approved', '1']);
-                        
-                        $status = $isPaid ? 'paid' : 'unpaid';
+                        $val        = $p->invoice ? $p->invoice->amount : ($p->contract_value ?? 0);
+
+                        $vName = optional($p->vendor)->nama ?? optional($p->vendor)->name ?? '-';
+                        $dName = optional($p->device)->device_name ?? '-';
+
+                        $apiStatus = strtolower((string)($p->status ?? ''));
+                        $inv       = $p->invoice;
+                        $invStatus = $inv ? strtolower($inv->status) : 'unpaid';
+                        $isPaid    = in_array($apiStatus, ['paid', 'approved', '1']) || in_array($invStatus, ['paid', 'approved', '1']);
+
+                        $status      = $isPaid ? 'paid' : 'unpaid';
                         $statusClass = $isPaid ? 'status-paid' : 'status-unpaid';
-                        
-                        $playlistId = $p['id'] ?? $i;
-                        $resolvedItems = $p['resolved_items'] ?? [];
-                        $kontenJson = htmlspecialchars(json_encode(array_values($resolvedItems)), ENT_QUOTES);
+
+                        $playlistId    = $p->id;
+                        $resolvedItems = $p->items ?? collect();
+                        $kontenJson    = htmlspecialchars(json_encode($resolvedItems->toArray()), ENT_QUOTES);
                       @endphp
                       <tr>
                         <td>{{ $i + 1 }}</td>
-                        <td><strong>{{ $p['playlist_name'] }}</strong></td>
+                        <td><strong>{{ $p->playlist_name }}</strong></td>
                         <td>{{ $vName }}</td>
                         <td>{{ $dName }}</td>
-                        <td>{{ Carbon::parse($p['start_contract'])->format('d M Y') }}</td>
-                        <td>{{ Carbon::parse($p['end_contract'])->format('d M Y') }}</td>
+                        <td>{{ Carbon::parse($p->start_contract)->format('d M Y') }}</td>
+                        <td>{{ Carbon::parse($p->end_contract)->format('d M Y') }}</td>
                         <td class="text-center">
                           <span class="sisa-badge {{ $sisaClass }}">
                             <span class="hari-num">{{ abs($diff) }}</span>
@@ -149,10 +142,10 @@
                         <td class="text-center">
                           <button class="btn btn-info btn-action mb-1" title="Preview Data & Konten"
                             data-id="{{ $playlistId }}"
-                            data-name="{{ addslashes($p['playlist_name']) }}"
+                            data-name="{{ addslashes($p->playlist_name) }}"
                             data-vendor="{{ addslashes($vName) }}"
-                            data-start="{{ $p['start_contract'] }}"
-                            data-end="{{ $p['end_contract'] }}"
+                            data-start="{{ $p->start_contract }}"
+                            data-end="{{ $p->end_contract }}"
                             data-value="{{ $val }}"
                             data-sisa="{{ $sisaLabel }}"
                             data-sisaclass="{{ $sisaClass }}"
@@ -284,7 +277,7 @@ function bukaPreview(btn) {
   .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
   .then(data => {
     if (data.status !== 'success') throw new Error(data.message || 'Response tidak sukses');
-    tampilkanKonten(data.data.resolved_items || []);
+    tampilkanKonten(data.data.items || []);
   })
   .catch(err => {
     let fallback = [];
@@ -304,7 +297,9 @@ function tampilkanKonten(kontenList) {
   }
   let html = '<div class="row">';
   kontenList.forEach(function(k) {
-    const fileUrl  = k.file_url || '';
+    // file_url accessor on Content model now returns the full public URL,
+    // so this always has a real value (or empty string if no file path).
+    const fileUrl  = k.file_url || (k.content && k.content.file ? '/storage/' + k.content.file : '');
     const fileType = k.file_type || (k.content ? k.content.type : '') || '';
     const isVideo  = fileType==='video' || /\.(mp4|mov|avi|mkv|webm)/i.test(fileUrl);
     const isImage  = fileType==='image' || /\.(jpg|jpeg|png|gif|webp|bmp)/i.test(fileUrl);
@@ -312,10 +307,18 @@ function tampilkanKonten(kontenList) {
     const tipeBadge = isVideo ? '<span class="badge-video ml-1"><i class="fas fa-film"></i> video</span>' : (isImage ? '<span class="badge-image ml-1"><i class="fas fa-image"></i> gambar</span>' : '');
     let thumbHtml = '';
     if (fileUrl) {
-      if (isImage) { thumbHtml = `<img src="${fileUrl}" class="konten-thumb" onclick="previewFile('${fileUrl}','image')" onerror="this.closest('.thumb-wrap').innerHTML='<div class=\\'text-center py-3\\'><i class=\\'fas fa-image fa-2x text-muted\\'></i></div>'" title="Klik untuk preview">`; } 
-      else if (isVideo) { thumbHtml = `<video class="konten-thumb-video" onclick="previewFile('${fileUrl}','video')" title="Klik untuk preview" preload="metadata"><source src="${fileUrl}"></video>`; } 
-      else { thumbHtml = '<div class="text-center py-3"><i class="fas fa-file fa-2x text-muted"></i></div>'; }
-    } else { thumbHtml = '<div class="text-center py-3"><i class="fas fa-file-upload fa-2x text-muted"></i></div>'; }
+      if (isImage) {
+        thumbHtml = `<img src="${fileUrl}" class="konten-thumb" onclick="previewFile('${fileUrl}','image')" onerror="handleThumbError(this)" title="Klik untuk preview">`;
+      }
+      else if (isVideo) {
+        thumbHtml = `<video class="konten-thumb-video" onclick="previewFile('${fileUrl}','video')" onerror="handleThumbError(this)" title="Klik untuk preview" preload="metadata"><source src="${fileUrl}"></video>`;
+      }
+      else {
+        thumbHtml = '<div class="text-center py-3"><i class="fas fa-file fa-2x text-muted"></i></div>';
+      }
+    } else {
+      thumbHtml = '<div class="text-center py-3"><i class="fas fa-file-upload fa-2x text-muted"></i></div>';
+    }
     
     let daysArr = k.days || [];
     if (typeof daysArr === 'string') { try { daysArr = JSON.parse(daysArr); } catch(e) { daysArr = [daysArr]; } }
@@ -327,7 +330,23 @@ function tampilkanKonten(kontenList) {
   container.innerHTML = html;
 }
 
+
+function handleThumbError(el) {
+  const wrap = el.closest('.thumb-wrap');
+  if (wrap) {
+    wrap.innerHTML = "<div class='text-center py-3'><i class='fas fa-image fa-2x text-muted'></i></div>";
+  }
+}
+
 function previewFile(url, type) {
+  const cont = document.getElementById('filePreviewContent');
+  if (type === 'image') {
+    cont.innerHTML = `<img src="${url}" class="img-fluid rounded" onerror="this.parentElement.innerHTML='<p class=\'text-muted\'>Gambar tidak bisa dimuat</p>'">`;
+  } else {
+    cont.innerHTML = `<div class="text-center py-3"><video controls class="w-100" style="max-height:450px" onloadstart="this.play()"><source src="${url}" type="video/mp4"></video><div class="text-muted mt-2"><i class="fas fa-film"></i> Load video...</div></div>`;
+  }
+  $('#filePreviewModal').modal('show');
+}
   const cont = document.getElementById('filePreviewContent');
   if (type === 'image') { cont.innerHTML = `<img src="${url}" class="img-fluid rounded" onerror="this.parentElement.innerHTML='<p class=\\'text-muted\\'>Gambar tidak bisa dimuat</p>'">`; } 
   else { cont.innerHTML = `<video controls class="w-100" style="max-height:450px"><source src="${url}"></video>`; }

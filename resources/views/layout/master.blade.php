@@ -18,20 +18,20 @@
   ========================================================== --}}
   <style>
     /* 1. BACKGROUND & HEADER */
-    body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar { background-color: #0b1120 !important; color: #e2e8f0 !important; }
-    .main-header { border-bottom: 1px solid #00f3ff; background-color: rgba(11, 17, 32, 0.9) !important; }
+    body, .content-wrapper, .main-header, .main-sidebar, .control-sidebar { background-color: #030710 !important; color: #a8b8d0 !important; }
+    .main-header { border-bottom: 1px solid rgba(0, 180, 200, 0.2); background-color: rgba(3, 7, 16, 0.97) !important; }
 
     /* 2. MENU SIDEBAR AKTIF (SINKRON WARNA BIRU NEON) */
     .nav-sidebar .nav-item > .nav-link.active {
-        background-color: rgba(0, 123, 255, 0.2) !important; 
-        border-left: 3px solid #00f3ff !important; 
-        color: #00f3ff !important; 
-        text-shadow: 0 0 5px rgba(0, 243, 255, 0.5) !important; 
+        background-color: rgba(0, 80, 140, 0.15) !important; 
+        border-left: 3px solid rgba(0, 180, 200, 0.5) !important; 
+        color: #5fb8cc !important; 
+        text-shadow: 0 0 3px rgba(0, 180, 200, 0.2) !important; 
     }
     .nav-sidebar .nav-item > .nav-link.active i, .nav-sidebar .nav-item > .nav-link.active p {
-        color: #00f3ff !important; text-shadow: 0 0 5px rgba(0, 243, 255, 0.5) !important;
+        color: #5fb8cc !important; text-shadow: 0 0 3px rgba(0, 180, 200, 0.2) !important;
     }
-    .nav-sidebar .nav-item > .nav-link:hover { color: #00f3ff !important; background-color: rgba(0, 243, 255, 0.05) !important; }
+    .nav-sidebar .nav-item > .nav-link:hover { color: #5fb8cc !important; background-color: rgba(0, 180, 200, 0.03) !important; }
 
     /* ==========================================================
    3. EFEK GLOWING BOX BACKGROUND & HOVER (TERMASUK KUNING)
@@ -95,12 +95,14 @@
     transform: scale(1.15); /* Animasi icon membesar pas disorot mouse */
 }
     /* 6. TABEL & KOTAK LAINNYA */
-    .card { background-color: #111827 !important; border: 1px solid #00f3ff; box-shadow: 0 0 10px rgba(0, 243, 255, 0.2), inset 0 0 5px rgba(0, 243, 255, 0.1); color: #e2e8f0; }
-    h1, h2, h3, h4, .card-title, a.view-more-link { color: #00f3ff !important; text-shadow: 0 0 5px rgba(0, 243, 255, 0.5); }
-    .table { color: #e2e8f0; }
-    .table td, .table th { border-color: rgba(0, 243, 255, 0.2); }
-    .thead-dark th { background-color: rgba(0, 0, 0, 0.4) !important; border-color: rgba(0, 243, 255, 0.3) !important; }
-    .table-hover tbody tr:hover { background-color: rgba(0, 243, 255, 0.1); }
+    .card { background-color: #070f1e !important; border: 1px solid rgba(0, 180, 200, 0.12); box-shadow: 0 0 6px rgba(0, 180, 200, 0.06), inset 0 0 3px rgba(0, 180, 200, 0.03); color: #a8b8d0; }
+    h1, h2, h3, h4, .card-title, a.view-more-link { color: #5fb8cc !important; text-shadow: 0 0 3px rgba(0, 180, 200, 0.2); }
+    .table { color: #a8b8d0; }
+    .table td, .table th { border-color: rgba(0, 180, 200, 0.08); }
+    .thead-dark th { background-color: rgba(0, 0, 0, 0.6) !important; border-color: rgba(0, 180, 200, 0.12) !important; }
+    .table-hover tbody tr { transition: background-color 0.15s ease, box-shadow 0.15s ease; }
+    .table-hover tbody tr:hover { background-color: rgba(0, 150, 180, 0.10) !important; box-shadow: inset 0 0 8px rgba(0, 150, 180, 0.15), inset 4px 0 0 rgba(0, 170, 200, 0.45); }
+    .table-hover tbody tr:hover td { color: #b8dce8 !important; }
 
     /* 7. CUSTOM UI (DARI PERMINTAAN.BLADE.PHP) */
     .sisa-badge{display:inline-flex;align-items:center;justify-content:center;width:54px;height:54px;border-radius:50%;font-size:11px;font-weight:700;line-height:1.2;text-align:center;flex-direction:column}
@@ -156,8 +158,16 @@
     .info-konten-box .info-label{font-size:11px;color:#9aa0ae;margin-bottom:2px}
     .info-konten-box .info-val{font-size:15px;font-weight:700;color:#fff}
     .contract-display{font-size:18px;font-weight:800;color:#28a745;letter-spacing:.5px}
+    /* 8. TOAST NOTIFICATION */
+    #toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
+    .toast-notif { display: flex; align-items: center; gap: 10px; min-width: 260px; max-width: 380px; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 1; transform: translateX(0); transition: opacity 0.4s ease, transform 0.4s ease; }
+    .toast-notif.success { background: linear-gradient(135deg, #1a5c2a, #28a745); border-left: 4px solid #39ff14; }
+    .toast-notif.error   { background: linear-gradient(135deg, #5c1a1a, #dc3545); border-left: 4px solid #ff2a55; }
+    .toast-notif.warning { background: linear-gradient(135deg, #5c4a00, #ffc107); border-left: 4px solid #fffb00; color: #333; }
+    .toast-notif.hide { opacity: 0; transform: translateX(40px); }
+
     /* ==========================================================
-   8. ANIMASI MUNCUL (FADE IN UP & EFEK BERGELOMBANG SMOOTH)
+   9. ANIMASI MUNCUL (FADE IN UP & EFEK BERGELOMBANG SMOOTH)
 ========================================================== */
 /* Bikin racikan efek gelombang: Naik ngesut -> kelewatan dikit -> turun -> pas tengah */
 @keyframes waveUpCyberpunk {

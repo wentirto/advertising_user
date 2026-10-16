@@ -328,18 +328,16 @@ function formatRupiah(angka) {
 // RUMUS BARU: 50.000 (Disesuaikan dengan permintaan)
 // ================================================================
 function hitungHargaRow(slotDtk, durasiKontenDtk) {
-  if (!slotDtk) return 0;
-  var durFix = durasiKontenDtk > 0 ? durasiKontenDtk : 15;
-  
-  // 1. Total durasi konten ÷ 15 detik = blok
+  // Harga per tayang = blok 15 detik x 50.000.
+  // Durasi konten dibulatkan ke atas 15 detik minimal (biar detik < 15
+  // nggak dianggap sangat kecil sehingga jumlah putaran meledak).
+  // Jumlah putaran = slot total dibagi durasi konten, minimum 1 kali
+  // (biar konten lebih panjang dari slot nggak langsung 0).
+  if (slotDtk <= 0 || !durasiKontenDtk || durasiKontenDtk <= 0) return 0;
+  var durFix = Math.max(durasiKontenDtk, 15);
   var blok = Math.ceil(durFix / 15);
-  
-  // 2. Blok × harga per 15 detik (50.000) = hasil
   var hargaSatuTayang = blok * 50000;
-  
-  // 3. Hasil × total pengulangan konten = harga yang harus dibayar
-  var jumlahPutar = Math.floor(slotDtk / durFix);
-  
+  var jumlahPutar = Math.max(1, Math.floor(slotDtk / durFix));
   return hargaSatuTayang * jumlahPutar;
 }
 
@@ -460,7 +458,7 @@ function loadLokasi() {
           + ' data-kota="' + (d.kota||'').replace(/"/g,'&quot;') + '"'
           + ' data-width="' + (d.r_width||'') + '" data-height="' + (d.r_height||'') + '">'
           + '<div class="lokasi-thumb">'
-          + (d.thumbnail ? '<img src="' + d.thumbnail + '" style="width:100%;height:100%;object-fit:cover;">' : '<i class="fas fa-tv fa-3x text-muted"></i>')
+          + (d.thumbnail ? '<img src="' + d.thumbnail + '" style="width:100%;height:100%;object-fit:cover;border-radius:6px;" alt="' + (d.device_name || '') + '">' : '<i class="fas fa-tv fa-3x text-muted"></i>')
           + '</div><div class="card-body">'
           + '<h6 class="mb-1">' + d.device_name + '</h6>'
           + '<small class="text-muted d-block">' + (d.kota||'-') + ', ' + (d.provinsi||'-') + '</small>'
@@ -864,16 +862,18 @@ $(document).ready(function() {
       processData: false,
       timeout: 600000,
       success: function(res) {
-        showToast(res.message || 'Playlist berhasil disimpan!', 'success');
-        setTimeout(function(){ window.location.href = '{{ route("vendor.playlist") }}'; }, 1600);
+        btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Playlist');
+        showToast(res.message || 'Playlist berhasil disimpan!', 'success', 3000);
+        setTimeout(function(){ window.location.href = '{{ route("vendor.playlist") }}'; }, 2500);
       },
       error: function(err) {
         var r = err.responseJSON;
-        var msg = 'Error ' + err.status;
+        var msg = 'Gagal simpan (Error ' + err.status + ')';
+        if (err.status === 0)   msg = 'Koneksi ke server gagal! Cek server sudah jalan.';
         if (err.status === 419) msg = 'Session expired, refresh halaman!';
-        else if (r && r.errors) msg = Object.values(r.errors)[0][0];
+        else if (r && r.errors)  msg = Object.values(r.errors)[0][0];
         else if (r && r.message) msg = r.message;
-        showToast(msg, 'error');
+        showToast(msg, 'error', 6000);
         btn.prop('disabled', false).html('<i class="fas fa-save mr-1"></i>Simpan Playlist');
       }
     });
@@ -916,7 +916,7 @@ $(document).on('click', '.btn-preview-unpaid', function() {
   .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
   .then(function(data) {
     if (data.status !== 'success') throw new Error(data.message || 'Gagal');
-    tampilkanKontenPermintaan(data.data.resolved_items || []);
+    tampilkanKontenPermintaan(data.data.items || []);
   })
   .catch(function(err) {
     document.getElementById('prev_konten_container').innerHTML = '<div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle mr-1"></i>Gagal memuat konten: ' + err.message + '</div>';
@@ -935,9 +935,10 @@ function tampilkanKontenPermintaan(kontenList) {
 
   var html = '<div class="row">';
   kontenList.forEach(function(k) {
-    var fileUrl  = k.file_url  || '';
+    var fileUrl  = k.file_url  || (k.content && k.content.file ? '/storage/' + k.content.file : '');
     var fileType = k.file_type || (k.content ? k.content.type : '') || '';
-    var fileName = (k.content  ? k.content.file : '') || '';
+    var fileName = (k.content && k.content.file ? k.content.file : '') || '';
+    var namaFile = (k.content && k.content.title) ? k.content.title : 'File konten';
     var isVideo  = fileType === 'video' || /\.(mp4|mov|avi|mkv|webm)$/i.test(fileName);
     var isImage  = fileType === 'image' || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
     var startDate = k.start_date || '-';
@@ -954,7 +955,7 @@ function tampilkanKontenPermintaan(kontenList) {
       else mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-file fa-2x mb-2 d-block"></i>' + fileName.split('/').pop() + '</div>';
     } else mediaHtml = '<div class="text-muted text-center py-3"><i class="fas fa-image fa-2x mb-2 d-block"></i>Tidak ada file</div>';
 
-    var shortName = fileName.split('/').pop() || 'File';
+    var shortName = namaFile || fileName.split('/').pop() || 'File';
     var typeBadge = isVideo ? '<span style="background:#6f42c1;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#9654; video</span>' : isImage ? '<span style="background:#17a2b8;color:#fff;font-size:10px;padding:2px 6px;border-radius:6px;">&#128247; gambar</span>' : '';
 
     html += '<div class="col-md-6 mb-3"><div class="card card-secondary card-outline h-100"><div class="card-header py-2 d-flex justify-content-between align-items-center"><small class="text-truncate" style="max-width:75%;" title="' + shortName + '">' + shortName + '</small>' + typeBadge + '</div><div class="card-body p-2" style="background:rgba(0,0,0,.3);">' + mediaHtml + '</div><div class="card-footer p-2"><table class="table table-borderless table-sm mb-0" style="font-size:12px;"><tr><td class="py-0 text-muted" style="width:90px">Start Date</td><td class="py-0">' + startDate + '</td><td class="py-0 text-muted" style="width:70px">End Date</td><td class="py-0">' + endDate + '</td></tr><tr><td class="py-0 text-muted">Start Time</td><td class="py-0">' + startTime + '</td><td class="py-0 text-muted">End Time</td><td class="py-0">' + endTime + '</td></tr><tr><td class="py-0 text-muted">Hari Tayang</td><td class="py-0" colspan="3">' + days + '</td></tr><tr><td class="py-0 text-muted">Prioritas</td><td class="py-0" colspan="3">' + prioritas + '</td></tr></table></div></div></div>';

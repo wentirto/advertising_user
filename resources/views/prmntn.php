@@ -442,18 +442,16 @@ function formatRupiah(angka) {
 // RUMUS BARU (Disesuaikan dengan permintaan)
 // ================================================================
 function hitungHargaRow(slotDtk, durasiKontenDtk) {
-  if (!slotDtk) return 0;
-  var durFix = durasiKontenDtk > 0 ? durasiKontenDtk : 15;
-  
-  // 1. Total durasi konten ÷ 15 detik = blok
+  // Harga per tayang = blok 15 detik x 50.000.
+  // Durasi konten dibulatkan ke atas 15 detik minimal (biar detik < 15
+  // nggak dianggap sangat kecil sehingga jumlah putaran meledak).
+  // Jumlah putaran = slot total dibagi durasi konten, minimum 1 kali
+  // (biar konten lebih panjang dari slot nggak langsung 0).
+  if (slotDtk <= 0 || !durasiKontenDtk || durasiKontenDtk <= 0) return 0;
+  var durFix = Math.max(durasiKontenDtk, 15);
   var blok = Math.ceil(durFix / 15);
-  
-  // 2. Blok × harga per 15 detik (50.000) = hasil
   var hargaSatuTayang = blok * 50000;
-  
-  // 3. Hasil × total pengulangan konten = harga yang harus dibayar
-  var jumlahPutar = Math.floor(slotDtk / durFix);
-  
+  var jumlahPutar = Math.max(1, Math.floor(slotDtk / durFix));
   return hargaSatuTayang * jumlahPutar;
 }
 
@@ -1032,7 +1030,24 @@ $(document).on('click', '.btn-preview-unpaid', function() {
   document.getElementById('prev_konten_count').textContent = '';
   $('#previewModal').modal('show');
 
-  fetch('/api/playlist/' + id, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' } })
+ let hargaNasiGoreng = 15000;
+let hargaEsTeh = 3000;
+let uangBudi = 50000;
+let lembaranKembalian = 5000;
+//nomor 1
+let totalBelanja = (hargaNasiGoreng * 2) + (hargaEsTeh * 3);
+// nomor 2
+let kembalian = uangBudi - totalBelanja;
+// nomor 3
+let jumlahLembar5Ribu = Math.floor(kembalian / lembaranKembalian);
+let sisaNganggur = kembalian % lembaranKembalian;
+
+console.log(`=== STRUK BELANJA BUDI ===
+Total Belanja Budi : Rp ${totalBelanja}
+Total Kembaliannya : Rp ${kembalian}
+Lembar 5 ribu yang diterima : ${jumlahLembar5Ribu} lembar
+Mang Udin masih ngutang : Rp ${sisaNganggur}`);
+ fetch('/api/playlist/' + id, { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content, 'Accept': 'application/json' } })
   .then(function(res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
   .then(function(data) {
     if (data.status !== 'success') throw new Error(data.message || 'Gagal');

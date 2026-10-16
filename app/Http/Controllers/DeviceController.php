@@ -1,67 +1,93 @@
 <?php
+
 namespace App\Http\Controllers;
+
+use App\Models\Device;
+use App\Models\Playlist;
 
 class DeviceController extends Controller
 {
     public function getDevice($id)
     {
-        $data = $this->apiGet();
-        return response()->json(collect($data['devices'] ?? [])->firstWhere('id', (int)$id));
+        $device = Device::findOrFail($id);
+        return response()->json($device);
     }
 
     public function getDevicesByVendor($vendor_id)
     {
-        $data = $this->apiGet();
-        return response()->json(collect($data['devices'] ?? [])->filter(fn($d) => (int)($d['id_vendor'] ?? 0) === (int)$vendor_id)->values());
+        $devices = Device::where('id_vendor', $vendor_id)->get();
+        return response()->json($devices);
     }
 
     public function getAvailableLocations()
     {
-        $data = $this->apiGet();
-        if (empty($data)) return response()->json([]);
+        $devices = Device::all()->map(function ($d) {
+            // Ambil gambar dari beberapa kemungkinan kolom
+            $image = $d->image ?? $d->thumbnail ?? $d->device_image ?? null;
 
-        $devices = collect($data['devices'] ?? [])->map(function ($d) {
-            $thumbnail = null;
-            if (!empty($d['image'])) {
-                $imgData = $d['image'];
-                while (is_string($imgData)) {
-                    $decoded = json_decode($imgData, true);
-                    if (json_last_error() === JSON_ERROR_NONE && !is_numeric($decoded)) $imgData = $decoded;
-                    else { $trimmed = trim($imgData, "'\""); if ($trimmed !== $imgData) $imgData = $trimmed; else break; }
+            // Coba ambil array gambar dari string (jika DB-nya nemu kasih URL+ JSON campur)
+            if (is_string($image) && strpos($image, '[') !== false) {
+                $jsonString = substr($image, strpos($image, '['));
+                $jsonString = rtrim(trim($jsonString), ']');
+                $images = json_decode($jsonString, true);
+                if (is_array($images) && count($images) > 0) {
+                    $image = array_shift($images);
+                } else {
+                    $image = null;
                 }
-                if (is_array($imgData) && count($imgData) > 0) $thumbnail = $imgData[0];
-                elseif (is_string($imgData)) $thumbnail = $imgData;
-                if ($thumbnail) $thumbnail = $this->buildFileUrl($thumbnail);
             }
+
+            if ($image) {
+                // Kalau belum full URL, buat dari asset storage
+                if (!str_starts_with($image, 'http')) {
+                    $image = asset('storage/' . $image);
+                }
+            }
+
             return [
-                'id' => $d['id'] ?? null, 'device_name' => $d['device_name'] ?? '-',
-                'provinsi' => $d['provinsi'] ?? '-', 'kota' => $d['kota'] ?? '-',
-                'r_width' => $d['r_width'] ?? null, 'r_height' => $d['r_height'] ?? null,
-                'thumbnail' => $thumbnail, 
+                'id'          => $d->id,
+                'device_name' => $d->device_name,
+                'provinsi'    => $d->provinsi ?? '-',
+                'kota'        => $d->kota ?? '-',
+                'r_width'     => $d->r_width,
+                'r_height'    => $d->r_height,
+                'thumbnail'   => $image,
             ];
-        })->filter(fn($d) => !is_null($d['id']))->values();
+        });
 
         return response()->json($devices);
     }
 
     public function getDeviceSchedule($deviceId)
     {
-        $data = $this->apiGet();
-        $device = collect($data['devices'] ?? [])->firstWhere('id', (int)$deviceId);
-        if (!$device) return response()->json(['status' => 'error'], 404);
+        $device = Device::find($deviceId);
+        if (!$device) {
+            return response()->json(['status' => 'error'], 404);
+        }
 
-        $devicePlaylists = collect($data['playlists'] ?? [])->filter(fn($p) => (int)($p['device_id'] ?? 0) === (int)$deviceId)->values();
-        $bookings = $devicePlaylists->map(function ($p) use ($data) {
-            $items = $this->resolvePlaylistContents((int)($p['id'] ?? 0), $data['contents'] ?? [], $data['playlist_items'] ?? []);
-            $starts = collect($items)->pluck('start_time')->filter()->values();
-            $ends   = collect($items)->pluck('end_time')->filter()->values();
+        // Ambil semua playlist untuk device ini, beserta items-nya
+        $playlists = Playlist::where('device_id', $deviceId)
+            ->with('items')
+            ->get();
+
+        $bookings = $playlists->map(function ($p) {
+            $starts = $p->items->pluck('start_time')->filter()->values();
+            $ends   = $p->items->pluck('end_time')->filter()->values();
+
             return [
-                'playlist_id' => $p['id'] ?? null, 'playlist_name' => $p['playlist_name'] ?? '-',
-                'start_contract' => $p['start_contract'] ?? null, 'end_contract' => $p['end_contract'] ?? null,
-                'start_time' => $starts->min() ?? '00:00', 'end_time' => $ends->max() ?? '24:00',
+                'playlist_id'     => $p->id,
+                'playlist_name'   => $p->playlist_name ?? '-',
+                'start_contract'  => $p->start_contract,
+                'end_contract'    => $p->end_contract,
+                'start_time'      => $starts->min() ?? '00:00',
+                'end_time'        => $ends->max() ?? '24:00',
             ];
         })->filter(fn($b) => !empty($b['start_contract']) && !empty($b['end_contract']))->values();
 
-        return response()->json(['status' => 'success', 'device' => $device, 'bookings' => $bookings]);
+        return response()->json([
+            'status'   => 'success',
+            'device'   => $device,
+            'bookings' => $bookings,
+        ]);
     }
 }
