@@ -112,7 +112,12 @@
     .sisa-badge .hari-num{font-size:16px;font-weight:800;line-height:1}
     .badge-video{background:#6f42c1;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
     .badge-image{background:#17a2b8;color:#fff;font-size:10px;padding:2px 7px;border-radius:10px}
-    .remaining-field{background:rgba(255,255,255,.06)!important;cursor:not-allowed;font-weight:600;color:#17a2b8!important}
+    .remaining-field{background:rgba(0,30,60,.4)!important;border:1px solid rgba(0,217,255,.45)!important;cursor:not-allowed;font-weight:600;color:#6fe3ff!important;box-shadow:0 0 10px rgba(0,217,255,.2),inset 0 0 8px rgba(0,217,255,.07)}
+    .neon-field{background:rgba(0,30,60,.4)!important;border:1px solid rgba(0,217,255,.45)!important;color:#6fe3ff!important;font-weight:600;box-shadow:0 0 10px rgba(0,217,255,.2),inset 0 0 8px rgba(0,217,255,.07);transition:border-color .15s,box-shadow .15s,color .15s}
+    .neon-field:focus{border-color:rgba(0,243,255,.9)!important;box-shadow:0 0 18px rgba(0,243,255,.5),inset 0 0 10px rgba(0,243,255,.12)!important;color:#eaffff!important}
+    .neon-field::placeholder{color:rgba(150,215,240,.45)!important}
+    .btn-neon{background:linear-gradient(135deg,#00b4c8,#007bff)!important;border:1px solid rgba(0,243,255,.6)!important;color:#eaffff!important;font-weight:700;box-shadow:0 0 14px rgba(0,217,255,.45),inset 0 0 8px rgba(0,243,255,.15);transition:all .2s ease}
+    .btn-neon:hover{box-shadow:0 0 22px rgba(0,243,255,.75),inset 0 0 12px rgba(0,243,255,.25);transform:translateY(-2px);color:#fff!important}
     .content-row{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:14px 16px;margin-bottom:12px;position:relative}
     .content-row .btn-remove-row{position:absolute;top:8px;right:8px}
     #wizardSteps{position:sticky;top:57px;z-index:100;background:#1e2230;padding:10px 0;margin-bottom:0}
@@ -124,13 +129,17 @@
     .lokasi-card:hover{border-color:#17a2b8;transform:translateY(-2px)}
     .lokasi-card.selected{border-color:#28a745;box-shadow:0 0 0 2px rgba(40,167,69,.4)}
     .lokasi-thumb{height:120px;border-radius:6px 6px 0 0;background:rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;overflow:hidden}
-    .drum-picker-wrap{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:8px;padding:4px 8px}
-    .drum-col-wrap{position:relative;width:48px;height:120px}
-    .drum-col{width:48px;height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+    .drum-picker-wrap{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(180deg,rgba(0,40,70,.6),rgba(4,10,22,.9));border:1px solid rgba(0,217,255,.5);border-radius:14px;padding:10px 14px;box-shadow:0 0 16px rgba(0,217,255,.25),inset 0 0 14px rgba(0,217,255,.08)}
+    .drum-col-wrap{position:relative;width:52px;height:120px;border-radius:8px;background:rgba(0,12,26,.55);overflow:hidden}
+    .drum-col{width:52px;height:120px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 34px,#000 86px,transparent 100%);mask-image:linear-gradient(180deg,transparent 0,#000 34px,#000 86px,transparent 100%)}
     .drum-col::-webkit-scrollbar{display:none}
-    .drum-highlight{position:absolute;top:40px;left:0;right:0;height:40px;background:rgba(0,123,255,.18);border-radius:4px;pointer-events:none;border-top:1px solid rgba(0,123,255,.6);border-bottom:1px solid rgba(0,123,255,.6);z-index:2}
-    .drum-sep{font-size:22px;font-weight:800;color:#fff;margin:0 2px;line-height:128px}
-    .drum-item{height:40px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:16px;font-weight:700;color:rgba(255,255,255,.28);user-select:none;transition:color .08s,font-size .08s}
+    .drum-highlight{position:absolute;top:40px;left:2px;right:2px;height:40px;background:linear-gradient(180deg,rgba(0,217,255,.14),rgba(0,123,255,.3));border-radius:8px;pointer-events:none;border-top:1px solid rgba(0,217,255,.85);border-bottom:1px solid rgba(0,217,255,.85);box-shadow:0 0 16px rgba(0,217,255,.55),inset 0 0 12px rgba(0,217,255,.35);z-index:2}
+    .drum-sep{font-size:26px;font-weight:900;color:#00f3ff;margin:0 3px;line-height:128px;text-shadow:0 0 8px rgba(0,243,255,.95),0 0 20px rgba(0,243,255,.5)}
+    .drum-item{height:40px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;font-size:16px;font-weight:700;color:rgba(160,200,225,.32);user-select:none;transition:color .12s,font-size .12s,text-shadow .12s}
+    .drum-item.active{color:#eaffff;font-size:20px;font-weight:900;text-shadow:0 0 6px rgba(0,243,255,1),0 0 16px rgba(0,243,255,.8),0 0 28px rgba(0,243,255,.5);animation:drumGlowPulse 1.3s ease-in-out infinite}
+    .drum-col-wrap.drum-scroll .drum-highlight{animation:drumHighlightFlash .45s ease-out}
+    @keyframes drumGlowPulse{0%,100%{text-shadow:0 0 6px rgba(0,243,255,1),0 0 16px rgba(0,243,255,.8),0 0 28px rgba(0,243,255,.5)}50%{text-shadow:0 0 4px rgba(0,243,255,1),0 0 24px rgba(0,243,255,1),0 0 44px rgba(0,243,255,.85)}}
+    @keyframes drumHighlightFlash{0%{box-shadow:0 0 12px rgba(0,243,255,.4),inset 0 0 8px rgba(0,243,255,.25)}40%{box-shadow:0 0 30px rgba(0,243,255,.95),inset 0 0 18px rgba(0,243,255,.6)}100%{box-shadow:0 0 16px rgba(0,217,255,.55),inset 0 0 12px rgba(0,217,255,.35)}}
     .cal-grid-table{width:100%;table-layout:fixed;border-collapse:collapse}
     .cal-grid-table th{text-align:center;font-size:12px;font-weight:600;padding:6px 2px;color:#9aa0ae;border-bottom:1px solid rgba(255,255,255,.1)}
     .cal-grid-table td{vertical-align:top;height:72px;padding:4px;border:1px solid rgba(255,255,255,.06);font-size:13px;cursor:pointer;transition:background .1s;position:relative}
@@ -160,11 +169,12 @@
     .contract-display{font-size:18px;font-weight:800;color:#28a745;letter-spacing:.5px}
     /* 8. TOAST NOTIFICATION */
     #toast-container { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 8px; }
-    .toast-notif { display: flex; align-items: center; gap: 10px; min-width: 260px; max-width: 380px; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 1; transform: translateX(0); transition: opacity 0.4s ease, transform 0.4s ease; }
+    .toast-notif { display: flex; align-items: center; gap: 10px; min-width: 260px; max-width: 380px; padding: 12px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; color: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.4); opacity: 1; transform: translateX(0); transition: opacity 0.4s ease, transform 0.4s ease; animation: toastSlideIn .5s cubic-bezier(.22,1,.36,1) backwards; }
     .toast-notif.success { background: linear-gradient(135deg, #1a5c2a, #28a745); border-left: 4px solid #39ff14; }
     .toast-notif.error   { background: linear-gradient(135deg, #5c1a1a, #dc3545); border-left: 4px solid #ff2a55; }
     .toast-notif.warning { background: linear-gradient(135deg, #5c4a00, #ffc107); border-left: 4px solid #fffb00; color: #333; }
     .toast-notif.hide { opacity: 0; transform: translateX(40px); }
+    @keyframes toastSlideIn{0%{opacity:0;transform:translateX(120%)}60%{opacity:1;transform:translateX(-8px)}100%{opacity:1;transform:translateX(0)}}
 
     /* ==========================================================
    9. ANIMASI MUNCUL (FADE IN UP & EFEK BERGELOMBANG SMOOTH)

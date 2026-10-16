@@ -169,7 +169,7 @@
             <div class="card-header py-2"><h6 class="card-title mb-0"><i class="fas fa-film mr-1"></i> Info Playlist</h6></div>
             <div class="card-body pb-0">
               <div class="row">
-                <div class="col-md-12"><div class="form-group"><label>Nama Playlist <span class="text-danger">*</span></label><input type="text" id="playlist_name" class="form-control" placeholder="Masukkan nama playlist"></div></div>
+                <div class="col-md-12"><div class="form-group"><label>Nama Playlist <span class="text-danger">*</span></label><input type="text" id="playlist_name" class="form-control neon-field" placeholder="Masukkan nama playlist"></div></div>
               </div>
             </div>
           </div>
@@ -182,10 +182,10 @@
             </div>
             <div class="card-body pb-0">
               <div class="row">
-                <div class="col-md-3"><div class="form-group"><label>Nama Lokasi</label><input type="text" id="device_name_display" class="form-control" readonly></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Provinsi</label><input type="text" id="provinsi" class="form-control" readonly></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Kota / Kabupaten</label><input type="text" id="kota" class="form-control" readonly></div></div>
-                <div class="col-md-2"><div class="form-group"><label>Ukuran (H x W)</label><input type="text" id="ukuran" class="form-control" readonly></div></div>
+                <div class="col-md-3"><div class="form-group"><label>Nama Lokasi</label><input type="text" id="device_name_display" class="form-control remaining-field" readonly></div></div>
+                <div class="col-md-2"><div class="form-group"><label>Provinsi</label><input type="text" id="provinsi" class="form-control remaining-field" readonly></div></div>
+                <div class="col-md-2"><div class="form-group"><label>Kota / Kabupaten</label><input type="text" id="kota" class="form-control remaining-field" readonly></div></div>
+                <div class="col-md-2"><div class="form-group"><label>Ukuran (H x W)</label><input type="text" id="ukuran" class="form-control remaining-field" readonly></div></div>
                 <div class="col-md-3">
                   <div class="form-group">
                     <label>Contract Value</label>
@@ -215,7 +215,7 @@
           </div>
 
           <div class="d-flex justify-content-between mb-5">
-            <button type="button" class="btn btn-secondary" onclick="gotoStep(2)"><i class="fas fa-arrow-left mr-1"></i>Kembali</button>
+            <button type="button" class="btn btn-neon" onclick="gotoStep(2)"><i class="fas fa-arrow-left mr-1"></i>Kembali</button>
             <button type="button" class="btn btn-success btn-lg" id="btnSimpan"><i class="fas fa-save mr-1"></i>Simpan Playlist</button>
           </div>
         </div>
@@ -690,14 +690,19 @@ function initDrumCol(colId, min, max) {
   col.addEventListener('scroll', function(){
     var idx = Math.round(this.scrollTop/40);
     this.querySelectorAll('.drum-item').forEach(function(it,i){
-      it.style.color = i===idx ? '#ffffff' : 'rgba(255,255,255,.28)';
-      it.style.fontSize = i===idx ? '18px' : '15px';
+      it.classList.toggle('active', i === idx);
     });
+    var wrap = this.parentElement;
+    if (wrap) {
+      wrap.classList.remove('drum-scroll');
+      void wrap.offsetWidth;
+      wrap.classList.add('drum-scroll');
+    }
     updateDrumHidden();
     updateRangeAlert();
   }, { passive: true });
   var first = col.querySelector('.drum-item');
-  if (first) { first.style.color = '#ffffff'; first.style.fontSize = '18px'; }
+  if (first) { first.classList.add('active'); }
 }
 
 function getDrumVal(colId) {

@@ -5,6 +5,7 @@ use App\Http\Controllers\VendorDashboardController;
 use App\Http\Controllers\PlaylistController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\CustomerProfileController;
 
 // Bikin / langsung nembak ke Dashboard Vendor
 Route::get('/', function () {
@@ -21,7 +22,8 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
 
 // ================= GRUP USER =================
 Route::prefix('user')->name('user.')->group(function () {
-    // Controller untuk user nanti masuk sini
+    Route::get('/profile', [CustomerProfileController::class, 'show'])->name('profile');
+    Route::post('/profile/{id}', [CustomerProfileController::class, 'update'])->name('profile.update');
 });
 
 // ================= API & AJAX LOGIC =================
